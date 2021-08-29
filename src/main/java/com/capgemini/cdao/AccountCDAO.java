@@ -56,7 +56,7 @@ public class AccountCDAO {
     }
 
     public void addClient(Integer accountId, Integer clientId) {
-        session.execute(addClients.bind(Set.of(clientId), accountId));
+        session.execute(addClients.bind(Collections.singleton(clientId), accountId));
     }
 
     public void removeClients(Integer accountId, Set<Integer> clientIds) {
@@ -64,7 +64,7 @@ public class AccountCDAO {
     }
 
     public void removeClient(Integer accountId, Integer clientId) {
-        session.execute(removeClients.bind(Set.of(clientId), accountId));
+        session.execute(removeClients.bind(Collections.singleton(clientId), accountId));
     }
 
     public Integer create(Integer id, Set<Integer> clientIds, long amount) {

@@ -54,7 +54,7 @@ public class MapAccountClientsStore implements MapStore<ClientAccount, Boolean> 
     @Override
     public void delete(ClientAccount clientAccount) {
         System.out.println("delete client account:" + clientAccount);
-        accountCDAO.removeClients(clientAccount.getClientId(), Set.of(clientAccount.getAccountId()));
+        accountCDAO.removeClients(clientAccount.getClientId(), Collections.singleton(clientAccount.getAccountId()));
         clientCDAO.deleteAccountPermission(clientAccount.getClientId(), clientAccount.getAccountId());
     }
 
@@ -86,7 +86,7 @@ public class MapAccountClientsStore implements MapStore<ClientAccount, Boolean> 
 
     @Override
     public Map<ClientAccount, Boolean> loadAll(Collection<ClientAccount> keys) {
-        return Map.of();
+        return Collections.emptyMap();
     }
 
     @Override

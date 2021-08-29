@@ -31,7 +31,7 @@ public class BankController {
 
     @GetMapping("all-clients")
     List<Client> all() {
-        return clientCDAO.getAll().collect(Collectors.toUnmodifiableList());
+        return clientCDAO.getAll().collect(Collectors.toList());
     }
     @DeleteMapping("remove-permission")
     String deletePermission(@RequestParam Integer client, @RequestParam Integer account) {

@@ -1,6 +1,7 @@
 package com.capgemini.testhz;
 
-import com.capgemini.cdao.*;
+import com.capgemini.cdao.AccountCDAO;
+import com.capgemini.cdao.ClientCDAO;
 import com.capgemini.mdao.AccountMDAO;
 import com.capgemini.store.ClientAccount;
 import com.capgemini.store.MapAccountClientsStore;
@@ -9,7 +10,9 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hazelcast.config.*;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.MapConfig;
+import com.hazelcast.config.MapStoreConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.MapStoreFactory;
@@ -20,7 +23,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
 
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @SpringBootApplication
 public class BankApplication {
@@ -31,12 +38,12 @@ public class BankApplication {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode jsonNode = mapper.readTree(options);
 
-
         SpringApplication app = new SpringApplication(BankApplication.class);
-        app.setDefaultProperties(Map.of(
-                "server.port", jsonNode.get("http").get("port").asInt(),
-                "server.options", options
-        ));
+
+        Map<String,Object> props = new HashMap<>();
+        props.put("server.port", jsonNode.get("http").get("port").asInt());
+        props.put("server.options", options);
+        app.setDefaultProperties(props);
         app.run();
     }
 
@@ -114,8 +121,8 @@ public class BankApplication {
         mapAccountClientsStoreConfig.setWriteCoalescing(true);
         mapAccountClientsStoreConfig
                 .setFactoryImplementation((MapStoreFactory<ClientAccount, Boolean>) (mapName, properties) ->
-                new MapAccountClientsStore(clientCDAO, accountCDAO)
-        );
+                        new MapAccountClientsStore(clientCDAO, accountCDAO)
+                );
         accountClientsConfigMap.setMapStoreConfig(mapAccountClientsStoreConfig);
         accountClientsConfigMap.setBackupCount(2);
         hazlecast = Hazelcast.newHazelcastInstance(config);
