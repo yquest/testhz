@@ -48,7 +48,7 @@ public class BankController {
     @PostMapping("add-new-account")
     String addNewAccount(@RequestBody NewAccountRequest request) {
         accountCDAO.create(request.getAccount(), request.getClientIds(), request.getAmount());
-        for (var clientId : request.getClientIds()) {
+        for (Integer clientId : request.getClientIds()) {
             accountMDAO.addAccountPermission(clientId, request.getAccount());
             clientCDAO.addAccountPermission(clientId, request.getAccount());
         }
