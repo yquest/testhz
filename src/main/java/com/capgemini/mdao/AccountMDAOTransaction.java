@@ -80,7 +80,7 @@ public class AccountMDAOTransaction implements AccountMDAO {
         tx.beginTransaction();
         TransactionalMap<Integer, Long> map = tx.getMap(BankConstants.ACCOUNT_AMOUNT);
         Long sourceAmount = map.get(accountSource);
-        Long destAmount = map.get(accountSource);
+        Long destAmount = map.get(accountDestination);
         try {
             System.out.printf("source:%3d dest:%4d amount:%4d amountSource:%4d amountDest:%4d",
                     accountSource,
