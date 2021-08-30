@@ -2,12 +2,14 @@ package com.capgemini.mdao;
 
 import com.hazelcast.core.HazelcastInstance;
 
+import java.util.Map;
+
 public interface AccountMDAO {
     void addAccountPermission(int clientId, int accountId);
 
     void removeAccountPermission(int clientId, int accountId);
 
-    Long addAmount(int accountId, int clientId, long amount);
+    Map.Entry<Long,String> addAmount(int accountId, int clientId, long amount);
 
     enum Selector {
         LOCK, SUBMIT_TO_OWNER, TRANSACTION;

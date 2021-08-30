@@ -6,6 +6,8 @@ import com.capgemini.testhz.BankConstants;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
 
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.capgemini.client.AccountException.Code.CLIENT_NOT_ALLOWED;
@@ -31,7 +33,7 @@ public class AccountMDAOLock implements AccountMDAO {
     }
 
     @Override
-    public Long addAmount(int accountId, int clientId, long amount) {
+    public Map.Entry<Long, String> addAmount(int accountId, int clientId, long amount) {
         IMap<Integer, Long> mapAmount = hazelcast.getMap(BankConstants.ACCOUNT_AMOUNT);
         IMap<ClientAccount, Boolean> mapAccountClients = hazelcast.getMap(BankConstants.ACCOUNT_CLIENTS);
         Boolean isAuthorized = Optional.ofNullable(mapAccountClients.get(new ClientAccount(accountId, clientId)))
@@ -41,14 +43,20 @@ public class AccountMDAOLock implements AccountMDAO {
         }
         mapAmount.lock(accountId);
         try {
-            return mapAmount.computeIfPresent(accountId, (Integer k, Long v) -> {
-                final long total = v + amount;
-                System.out.printf("account:%3d current:%4d amount:%4d total:%4d\n", accountId, v, amount, total);
-                if (total < 0) {
-                    throw new AccountException(NEGATIVE_AMOUNT, total);
-                }
-                return total;
-            });
+            Long computed = null;
+            try {
+                computed = mapAmount.computeIfPresent(accountId, (Integer k, Long v) -> {
+                    final long total = v + amount;
+                    System.out.printf("account:%3d current:%4d amount:%4d total:%4d\n", accountId, v, amount, total);
+                    if (total < 0) {
+                        throw new AccountException(NEGATIVE_AMOUNT, total);
+                    }
+                    return total;
+                });
+            } catch (AccountException e) {
+                return new AbstractMap.SimpleEntry<>(null, e.getCode().name());
+            }
+            return new AbstractMap.SimpleEntry<>(computed, null);
         } finally {
             mapAmount.unlock(accountId);
         }

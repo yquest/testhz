@@ -1,10 +1,9 @@
 package com.capgemini.testhz;
 
-import com.capgemini.client.AccountException;
-import com.capgemini.client.Client;
 import com.capgemini.cdao.AccountCDAO;
-import com.capgemini.mdao.AccountMDAO;
 import com.capgemini.cdao.ClientCDAO;
+import com.capgemini.client.Client;
+import com.capgemini.mdao.AccountMDAO;
 import com.capgemini.rest.AddAmountRequest;
 import com.capgemini.rest.AddAmountResponse;
 import com.capgemini.rest.NewAccountRequest;
@@ -12,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -33,15 +33,16 @@ public class BankController {
     List<Client> all() {
         return clientCDAO.getAll().collect(Collectors.toList());
     }
+
     @DeleteMapping("remove-permission")
     String deletePermission(@RequestParam Integer client, @RequestParam Integer account) {
-        accountMDAO.removeAccountPermission(client,account);
+        accountMDAO.removeAccountPermission(client, account);
         return "ok";
     }
 
     @GetMapping("add-permission")
     String addPermission(@RequestParam Integer client, @RequestParam Integer account) {
-        accountMDAO.addAccountPermission(client,account);
+        accountMDAO.addAccountPermission(client, account);
         return "ok";
     }
 
@@ -57,16 +58,12 @@ public class BankController {
 
     @PostMapping("add-amount")
     AddAmountResponse addAmount(@RequestBody AddAmountRequest request) {
-        try {
-            Long balance = accountMDAO.addAmount(
-                    request.getIdAccount(),
-                    request.getIdClient(),
-                    request.getAmount()
-            );
-            return new AddAmountResponse(balance, null);
-        } catch (AccountException e) {
-            return new AddAmountResponse(null, e.getCode().name());
-        }
+        Map.Entry<Long, String> result = accountMDAO.addAmount(
+                request.getIdAccount(),
+                request.getIdClient(),
+                request.getAmount()
+        );
+        return new AddAmountResponse(result.getKey(), result.getValue());
     }
 
     @PostMapping("dummy-post")

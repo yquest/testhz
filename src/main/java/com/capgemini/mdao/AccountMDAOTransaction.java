@@ -8,6 +8,8 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.transaction.TransactionContext;
 import com.hazelcast.transaction.TransactionalMap;
 
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.capgemini.client.AccountException.Code.CLIENT_NOT_ALLOWED;
@@ -34,7 +36,7 @@ public class AccountMDAOTransaction implements AccountMDAO {
     }
 
     @Override
-    public Long addAmount(int accountId, int clientId, long amount) {
+    public Map.Entry<Long,String> addAmount(int accountId, int clientId, long amount) {
         IMap<ClientAccount, Boolean> mapAccountClients = hazelcast.getMap(BankConstants.ACCOUNT_CLIENTS);
         Boolean isAuthorized = Optional.ofNullable(mapAccountClients.get(new ClientAccount(accountId, clientId)))
                 .orElse(false);
@@ -50,12 +52,14 @@ public class AccountMDAOTransaction implements AccountMDAO {
             final long total = v + amount;
             System.out.printf("account:%3d current:%4d amount:%4d total:%4d", accountId, v, amount, total);
             if (total < 0) {
-                throw new AccountException(NEGATIVE_AMOUNT, total);
+                System.out.printf(" rollbacked :%4d\n", v);
+                tx.rollbackTransaction();
+                return new AbstractMap.SimpleEntry<>(null, NEGATIVE_AMOUNT.name());
             }
             System.out.printf(" commited   :%4d\n", total);
             map.set(accountId, total);
             tx.commitTransaction();
-            return total;
+            return new AbstractMap.SimpleEntry<>(v, null);
         } catch (Exception e) {
             System.out.printf(" rollbacked :%4d\n", v);
             tx.rollbackTransaction();

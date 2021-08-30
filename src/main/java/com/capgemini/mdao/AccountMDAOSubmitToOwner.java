@@ -6,6 +6,7 @@ import com.capgemini.testhz.BankConstants;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -31,7 +32,7 @@ public class AccountMDAOSubmitToOwner implements AccountMDAO {
     }
 
     @Override
-    public Long addAmount(int accountId, int clientId, long amount) {
+    public Map.Entry<Long,String> addAmount(int accountId, int clientId, long amount) {
         IMap<ClientAccount, Boolean> mapAccountClients = hazelcast.getMap(BankConstants.ACCOUNT_CLIENTS);
         Boolean isAuthorized = Optional.ofNullable(mapAccountClients.get(new ClientAccount(accountId, clientId)))
                 .orElse(false);

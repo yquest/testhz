@@ -15,7 +15,9 @@ import com.hazelcast.config.MapConfig;
 import com.hazelcast.config.MapStoreConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.map.IMap;
 import com.hazelcast.map.MapStoreFactory;
+import com.hazelcast.map.listener.EntryExpiredListener;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -23,11 +25,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
 
 import java.net.InetSocketAddress;
-import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @SpringBootApplication
 public class BankApplication {
@@ -40,7 +39,7 @@ public class BankApplication {
 
         SpringApplication app = new SpringApplication(BankApplication.class);
 
-        Map<String,Object> props = new HashMap<>();
+        Map<String, Object> props = new HashMap<>();
         props.put("server.port", jsonNode.get("http").get("port").asInt());
         props.put("server.options", options);
         app.setDefaultProperties(props);
@@ -126,6 +125,8 @@ public class BankApplication {
         accountClientsConfigMap.setMapStoreConfig(mapAccountClientsStoreConfig);
         accountClientsConfigMap.setBackupCount(2);
         hazlecast = Hazelcast.newHazelcastInstance(config);
+        final IMap<Integer, Long> map = hazlecast.getMap(BankConstants.ACCOUNT_AMOUNT);
+        map.addEntryListener((EntryExpiredListener<Integer, Long>) entryEvent -> System.out.println("expired " + entryEvent), true);
         return hazlecast;
     }
 

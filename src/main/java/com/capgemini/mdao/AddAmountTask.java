@@ -7,9 +7,11 @@ import com.hazelcast.core.HazelcastInstanceAware;
 import com.hazelcast.map.IMap;
 
 import java.io.Serializable;
+import java.util.AbstractMap;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
-public class AddAmountTask implements Callable<Long>, Serializable, HazelcastInstanceAware {
+public class AddAmountTask implements Callable<Map.Entry<Long,String>>, Serializable, HazelcastInstanceAware {
     private static final long serialVersionUID = -304471841936978820L;
     private final int account;
     private final long amount;
@@ -21,19 +23,19 @@ public class AddAmountTask implements Callable<Long>, Serializable, HazelcastIns
     }
 
     @Override
-    public Long call() {
+    public Map.Entry<Long,String> call() {
         IMap<Integer, Long> map = hazelcast.getMap(BankConstants.ACCOUNT_AMOUNT);
         Long current = map.get(account);
         if (current == null) {
-            throw new AccountException(AccountException.Code.ACCOUNT_NOT_EXISTS);
+            return new AbstractMap.SimpleEntry<>(null,AccountException.Code.ACCOUNT_NOT_EXISTS.name());
         }
         long total = current + amount;
         if (total < 0) {
-            throw new AccountException(AccountException.Code.NEGATIVE_AMOUNT);
+            return new AbstractMap.SimpleEntry<>(null,AccountException.Code.NEGATIVE_AMOUNT.name());
         }
         System.out.println(account + ":" + hazelcast.getName());
         map.set(account, total);
-        return total;
+        return new AbstractMap.SimpleEntry<>(total,null);
     }
 
     @Override

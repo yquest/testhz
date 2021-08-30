@@ -1,7 +1,11 @@
 package com.capgemini.testhz
 
+import com.capgemini.mdao.AddAmountTask
 import com.capgemini.rest.AddAmountRequest
 import com.fasterxml.jackson.databind.json.JsonMapper
+import com.hazelcast.client.HazelcastClient
+import com.hazelcast.client.config.ClientConfig
+import com.hazelcast.core.HazelcastInstance
 import io.restassured.RestAssured
 import io.restassured.config.ObjectMapperConfig
 import io.restassured.http.ContentType
@@ -20,6 +24,7 @@ class BankApplicationTests {
 
     companion object {
 
+        private var hzclient: HazelcastInstance
         private const val nAccounts = 10
         private const val clientsPerAccount = 2
         val accountMap: Map<Int, List<Int>>
@@ -31,6 +36,15 @@ class BankApplicationTests {
             RestAssured.config.objectMapperConfig(ObjectMapperConfig().jackson2ObjectMapperFactory { _, _ ->
                 return@jackson2ObjectMapperFactory mapper
             })
+
+            val clientConfig = ClientConfig()
+            clientConfig.clusterName = "bank"
+            clientConfig.networkConfig
+                .addAddress("127.0.0.1:5701")
+                .addAddress("127.0.0.1:5702")
+                .addAddress("127.0.0.1:5703")
+            hzclient = HazelcastClient.newHazelcastClient(clientConfig)
+
 
             val nCombinations = nAccounts * clientsPerAccount
             accountMap = (0 until nCombinations).groupBy { it % (nCombinations / clientsPerAccount) }
@@ -67,6 +81,28 @@ class BankApplicationTests {
             Duration.between(start, end).toMillis()
         )
     }
+
+    private fun callAddAmountServiceHZ(clientData: ClientData, amount: Long): String {
+
+        val start = Instant.now()
+        val result = hzclient.getExecutorService(BankConstants.ACCOUNT_AMOUNT)
+            .submitToKeyOwner(AddAmountTask(clientData.account, amount), clientData.account)
+            .get()
+
+        val end = Instant.now()
+        return String.format(
+            "%3d_%4d|%10d|%10d|%4s|%30s|%30s|%10s",
+            clientData.account,
+            clientData.clientId,
+            amount,
+            result.key,
+            if (result.value == null) "no" else "yes",
+            start.toEpochMilli(),
+            end.toEpochMilli(),
+            Duration.between(start, end).toMillis()
+        )
+    }
+
 
     private fun callDummyService(httpPort: Int): String {
         val start = Instant.now()
@@ -144,7 +180,7 @@ class BankApplicationTests {
         testHttpCallsDummy()
         val clients: List<ClientData> = accountMap.filter { it.key > 0 }.flatMap { entry ->
             entry.value.map {
-                ClientData(entry.key, it)
+                ClientData(it, entry.key)
             }
         }
 
@@ -168,6 +204,23 @@ class BankApplicationTests {
             callRemovePermission(defaultServerPort(), 0, 0)
             callAddPermission(defaultServerPort(), 0, 0)
         }
+    }
+
+    @Test
+    fun testClient() {
+        val clients: List<ClientData> = accountMap.filter { it.key > 0 }.flatMap { entry ->
+            entry.value.map {
+                ClientData(it, entry.key)
+            }
+        }
+
+        val times = 20
+        val linesAsync: List<() -> String> = clients.flatMap { client: ClientData -> List(times) { client } }
+            .map { { callAddAmountServiceHZ(it, Random.nextLong(-50, 51)) } }
+
+        callDummyService(defaultServerPort())
+
+        callWithMeasures(linesAsync, "summary/add-amount-hz.txt")
     }
 
 }
