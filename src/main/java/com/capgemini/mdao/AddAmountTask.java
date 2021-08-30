@@ -33,7 +33,7 @@ public class AddAmountTask implements Callable<Map.Entry<Long,String>>, Serializ
         if (total < 0) {
             return new AbstractMap.SimpleEntry<>(null,AccountException.Code.NEGATIVE_AMOUNT.name());
         }
-        System.out.println(account + ":" + hazelcast.getName());
+        System.out.println(account + ":" + total);
         map.set(account, total);
         return new AbstractMap.SimpleEntry<>(total,null);
     }

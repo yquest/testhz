@@ -4,9 +4,11 @@ import com.capgemini.cdao.AccountCDAO;
 import com.capgemini.cdao.ClientCDAO;
 import com.capgemini.client.Client;
 import com.capgemini.mdao.AccountMDAO;
+import com.capgemini.mdao.TransferResponse;
 import com.capgemini.rest.AddAmountRequest;
 import com.capgemini.rest.AddAmountResponse;
 import com.capgemini.rest.NewAccountRequest;
+import com.capgemini.rest.TransferAmountRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -64,6 +66,16 @@ public class BankController {
                 request.getAmount()
         );
         return new AddAmountResponse(result.getKey(), result.getValue());
+    }
+
+    @PostMapping("transfer-amount")
+    TransferResponse transferAmount(@RequestBody TransferAmountRequest request) {
+        return accountMDAO.transferAmount(
+                request.getSourceAccount(),
+                request.getClientAccount(),
+                request.getDestAccount(),
+                request.getAmount()
+        );
     }
 
     @PostMapping("dummy-post")

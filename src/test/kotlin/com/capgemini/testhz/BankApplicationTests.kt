@@ -1,6 +1,8 @@
 package com.capgemini.testhz
 
+import com.capgemini.client.AccountException
 import com.capgemini.mdao.AddAmountTask
+import com.capgemini.mdao.TransferAmountTask
 import com.capgemini.rest.AddAmountRequest
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.hazelcast.client.HazelcastClient
@@ -199,6 +201,27 @@ class BankApplicationTests {
     }
 
     @Test
+    fun testHttpTransfer(){
+        val amountMap = hzclient.getMap<Int, Long>(BankConstants.ACCOUNT_AMOUNT)
+        amountMap[0] = 100
+        amountMap[1] = 0
+
+        val response = AccountData.transferAmount(accountSrc = 0, accountDst = 1, client = 0, amount = 50)
+
+        Assert.assertNull(response.error)
+        Assert.assertEquals(50L,amountMap[0])
+        Assert.assertEquals(50L,amountMap[1])
+        Assert.assertEquals(50L,response.destAmount)
+        Assert.assertEquals(50L,response.sourceAmount)
+
+        val responseError = AccountData.transferAmount(accountSrc = 0, accountDst = 1, client = 0, amount = 60)
+
+        Assert.assertEquals(AccountException.Code.NEGATIVE_AMOUNT.name, responseError.error)
+        Assert.assertNull(responseError.sourceAmount)
+        Assert.assertNull(responseError.destAmount)
+    }
+
+    @Test
     fun removePermission() {
         runBlocking {
             callRemovePermission(defaultServerPort(), 0, 0)
@@ -218,9 +241,27 @@ class BankApplicationTests {
         val linesAsync: List<() -> String> = clients.flatMap { client: ClientData -> List(times) { client } }
             .map { { callAddAmountServiceHZ(it, Random.nextLong(-50, 51)) } }
 
-        callDummyService(defaultServerPort())
-
         callWithMeasures(linesAsync, "summary/add-amount-hz.txt")
+
+        val amountMap = hzclient.getMap<Int, Long>(BankConstants.ACCOUNT_AMOUNT)
+        amountMap[0] = 100
+        amountMap[1] = 0
+
+        val response = hzclient.getExecutorService(BankConstants.ACCOUNT_AMOUNT)
+            .submitToKeyOwner(TransferAmountTask(0,1,50),0).get()
+
+        Assert.assertNull(response.error)
+        Assert.assertEquals(50L,amountMap[0])
+        Assert.assertEquals(50L,amountMap[1])
+        Assert.assertEquals(50L,response.destAmount)
+        Assert.assertEquals(50L,response.sourceAmount)
+
+        val responseError = hzclient.getExecutorService(BankConstants.ACCOUNT_AMOUNT)
+            .submitToKeyOwner(TransferAmountTask(0,1,60),0).get()
+
+        Assert.assertEquals(AccountException.Code.NEGATIVE_AMOUNT.name, responseError.error)
+        Assert.assertNull(responseError.sourceAmount)
+        Assert.assertNull(responseError.destAmount)
     }
 
 }

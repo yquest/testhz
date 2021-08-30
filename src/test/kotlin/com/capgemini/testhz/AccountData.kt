@@ -1,8 +1,10 @@
 package com.capgemini.testhz
 
+import com.capgemini.mdao.TransferResponse
 import com.capgemini.rest.AddAmountRequest
 import com.capgemini.rest.AddAmountResponse
 import com.capgemini.rest.NewAccountRequest
+import com.capgemini.rest.TransferAmountRequest
 import io.restassured.RestAssured
 import io.restassured.http.ContentType
 import java.util.*
@@ -40,11 +42,31 @@ class AccountData(val id: Int, val clients: List<Int>) {
                 .andReturn().`as`(AddAmountResponse::class.java)
         }
 
+        fun transferAmount(
+            httpPort: Int = defaultServerPort(),
+            accountSrc: Int,
+            accountDst: Int,
+            client: Int,
+            amount: Long,
+        ): TransferResponse {
+            val request = TransferAmountRequest(accountSrc, accountDst, client, amount)
+            return RestAssured
+                .with()
+                .contentType(ContentType.JSON)
+                .body(request)
+                .post("http://localhost:${httpPort}/transfer-amount")
+                .andReturn().`as`(TransferResponse::class.java)
+        }
+
     }
+
+    fun transferAmount(serverIdx: Int = defaultServerPort(), client: Int, desAccount: Int, amount: Long) =
+        transferAmount(serverIdx, client, this.id, desAccount, amount)
 
     fun addAmount(serverIdx: Int = defaultServerPort(), client: Int, amount: Long): AddAmountResponse =
         addAmount(serverIdx, this.id, client, amount)
-    fun toClientDataList() = clients.map { ClientData(it,id) }
+
+    fun toClientDataList() = clients.map { ClientData(it, id) }
 
     override fun toString(): String {
         return "AccountData(id=$id, clients=$clients)"

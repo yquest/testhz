@@ -78,12 +78,14 @@ public class AccountMDAOLock implements AccountMDAO {
             if (sourceAmount == null || destAmount == null) {
                 return new TransferResponse(ACCOUNT_NOT_EXISTS.name());
             }
-            if (sourceAmount - amount < 0) {
+            final long totalDest = sourceAmount - amount;
+            if (totalDest < 0) {
                 return new TransferResponse(NEGATIVE_AMOUNT.name());
             }
-            mapAmount.set(accountSource, sourceAmount - amount);
-            mapAmount.set(accountDestination, destAmount + amount);
-            return new TransferResponse(sourceAmount, destAmount);
+            mapAmount.set(accountSource, totalDest);
+            final long totalSrc = destAmount + amount;
+            mapAmount.set(accountDestination, totalSrc);
+            return new TransferResponse(totalSrc, totalDest);
         } finally {
             mapAmount.unlock(accountDestination);
             mapAmount.unlock(accountSource);

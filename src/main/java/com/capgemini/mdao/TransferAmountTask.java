@@ -33,12 +33,14 @@ public class TransferAmountTask implements Callable<TransferResponse>, Serializa
             if (sourceAmount == null || destAmount == null) {
                 return new TransferResponse(ACCOUNT_NOT_EXISTS.name());
             }
-            if (sourceAmount - amount < 0) {
+            final long totalSource = sourceAmount - amount;
+            if (totalSource < 0) {
                 return new TransferResponse(NEGATIVE_AMOUNT.name());
             }
-            mapAmount.set(sourceAccount, sourceAmount - amount);
-            mapAmount.set(destAccount, destAmount + amount);
-            return new TransferResponse(sourceAmount, destAmount);
+            mapAmount.set(sourceAccount, totalSource);
+            final long totalDest = destAmount + amount;
+            mapAmount.set(destAccount, totalDest);
+            return new TransferResponse(totalSource, totalDest);
         } finally {
             mapAmount.unlock(destAccount);
         }
