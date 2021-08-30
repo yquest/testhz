@@ -10,8 +10,7 @@ import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.capgemini.client.AccountException.Code.CLIENT_NOT_ALLOWED;
-import static com.capgemini.client.AccountException.Code.NEGATIVE_AMOUNT;
+import static com.capgemini.client.AccountException.Code.*;
 
 public class AccountMDAOLock implements AccountMDAO {
     private final HazelcastInstance hazelcast;
@@ -43,7 +42,7 @@ public class AccountMDAOLock implements AccountMDAO {
         }
         mapAmount.lock(accountId);
         try {
-            Long computed = null;
+            Long computed;
             try {
                 computed = mapAmount.computeIfPresent(accountId, (Integer k, Long v) -> {
                     final long total = v + amount;
@@ -59,6 +58,35 @@ public class AccountMDAOLock implements AccountMDAO {
             return new AbstractMap.SimpleEntry<>(computed, null);
         } finally {
             mapAmount.unlock(accountId);
+        }
+    }
+
+    @Override
+    public TransferResponse transferAmount(int accountSource, int clientId, int accountDestination, long amount) {
+        IMap<Integer, Long> mapAmount = hazelcast.getMap(BankConstants.ACCOUNT_AMOUNT);
+        IMap<ClientAccount, Boolean> mapAccountClients = hazelcast.getMap(BankConstants.ACCOUNT_CLIENTS);
+        Boolean isAuthorized = Optional.ofNullable(mapAccountClients.get(new ClientAccount(accountSource, clientId)))
+                .orElse(false);
+        if (!isAuthorized) {
+            return new TransferResponse(CLIENT_NOT_ALLOWED.name());
+        }
+        mapAmount.lock(accountSource);
+        mapAmount.lock(accountDestination);
+        try {
+            Long sourceAmount = mapAmount.get(accountSource);
+            Long destAmount = mapAmount.get(accountDestination);
+            if (sourceAmount == null || destAmount == null) {
+                return new TransferResponse(ACCOUNT_NOT_EXISTS.name());
+            }
+            if (sourceAmount - amount < 0) {
+                return new TransferResponse(NEGATIVE_AMOUNT.name());
+            }
+            mapAmount.set(accountSource, sourceAmount - amount);
+            mapAmount.set(accountDestination, destAmount + amount);
+            return new TransferResponse(sourceAmount, destAmount);
+        } finally {
+            mapAmount.unlock(accountDestination);
+            mapAmount.unlock(accountSource);
         }
     }
 

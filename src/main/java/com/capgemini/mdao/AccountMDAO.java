@@ -11,6 +11,8 @@ public interface AccountMDAO {
 
     Map.Entry<Long,String> addAmount(int accountId, int clientId, long amount);
 
+    TransferResponse transferAmount(int accountSource, int clientId, int accountDestination, long amount);
+
     enum Selector {
         LOCK, SUBMIT_TO_OWNER, TRANSACTION;
 

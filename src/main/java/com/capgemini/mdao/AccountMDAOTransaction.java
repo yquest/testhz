@@ -36,7 +36,7 @@ public class AccountMDAOTransaction implements AccountMDAO {
     }
 
     @Override
-    public Map.Entry<Long,String> addAmount(int accountId, int clientId, long amount) {
+    public Map.Entry<Long, String> addAmount(int accountId, int clientId, long amount) {
         IMap<ClientAccount, Boolean> mapAccountClients = hazelcast.getMap(BankConstants.ACCOUNT_CLIENTS);
         Boolean isAuthorized = Optional.ofNullable(mapAccountClients.get(new ClientAccount(accountId, clientId)))
                 .orElse(false);
@@ -62,6 +62,47 @@ public class AccountMDAOTransaction implements AccountMDAO {
             return new AbstractMap.SimpleEntry<>(v, null);
         } catch (Exception e) {
             System.out.printf(" rollbacked :%4d\n", v);
+            tx.rollbackTransaction();
+            throw e;
+        }
+    }
+
+    @Override
+    public TransferResponse transferAmount(int accountSource, int clientId, int accountDestination, long amount) {
+        IMap<ClientAccount, Boolean> mapAccountClients = hazelcast.getMap(BankConstants.ACCOUNT_CLIENTS);
+        Boolean isAuthorized = Optional.ofNullable(mapAccountClients.get(new ClientAccount(accountSource, clientId)))
+                .orElse(false);
+        if (!isAuthorized) {
+            throw new AccountException(CLIENT_NOT_ALLOWED);
+        }
+
+        TransactionContext tx = hazelcast.newTransactionContext();
+        tx.beginTransaction();
+        TransactionalMap<Integer, Long> map = tx.getMap(BankConstants.ACCOUNT_AMOUNT);
+        Long sourceAmount = map.get(accountSource);
+        Long destAmount = map.get(accountSource);
+        try {
+            System.out.printf("source:%3d dest:%4d amount:%4d amountSource:%4d amountDest:%4d",
+                    accountSource,
+                    accountDestination,
+                    amount,
+                    sourceAmount,
+                    destAmount
+            );
+            final long totalSource = sourceAmount - amount;
+            if (totalSource < 0) {
+                System.out.printf(" rollbacked :%4d\n", totalSource);
+                tx.rollbackTransaction();
+                return new TransferResponse(NEGATIVE_AMOUNT.name());
+            }
+            final long totalDestination = destAmount + amount;
+            System.out.printf(" commited   dest:%4d\n", totalDestination);
+            map.set(accountSource, totalSource);
+            map.set(accountDestination, totalDestination);
+            tx.commitTransaction();
+            return new TransferResponse(totalSource, totalDestination);
+        } catch (Exception e) {
+            System.out.printf(" rollbacked source:%4d dest:%4d\n", sourceAmount, destAmount);
             tx.rollbackTransaction();
             throw e;
         }

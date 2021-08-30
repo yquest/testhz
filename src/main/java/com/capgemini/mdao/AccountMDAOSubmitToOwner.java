@@ -49,4 +49,22 @@ public class AccountMDAOSubmitToOwner implements AccountMDAO {
         }
     }
 
+    @Override
+    public TransferResponse transferAmount(int accountSource, int clientId, int accountDestination, long amount) {
+        IMap<ClientAccount, Boolean> mapAccountClients = hazelcast.getMap(BankConstants.ACCOUNT_CLIENTS);
+        Boolean isAuthorized = Optional.ofNullable(mapAccountClients.get(new ClientAccount(accountSource, clientId)))
+                .orElse(false);
+        if (!isAuthorized) {
+            throw new AccountException(CLIENT_NOT_ALLOWED);
+        }
+
+        try {
+            return hazelcast.getExecutorService(BankConstants.ACCOUNT_AMOUNT)
+                    .submitToKeyOwner(new TransferAmountTask(accountSource, accountDestination, amount), accountSource)
+                    .get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new AccountException(UNEXPECTED, e);
+        }
+    }
+
 }
