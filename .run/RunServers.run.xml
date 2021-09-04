@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="RunServers" type="CompoundRunConfigurationType">
+    <toRun name="RunServer2Kt" type="JetRunConfigurationType" />
+    <toRun name="RunServer1Kt" type="JetRunConfigurationType" />
+    <toRun name="RunServer3Kt" type="JetRunConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

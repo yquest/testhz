@@ -1,6 +1,7 @@
 package com.capgemini.testhz
 
-import com.capgemini.mdao.AccountMDAO
+import com.capgemini.mdao.account.AccountMDAO
+import com.capgemini.testhz.bank.CassandraTest
 import org.json.JSONObject
 
 const val serversNumber = 3
