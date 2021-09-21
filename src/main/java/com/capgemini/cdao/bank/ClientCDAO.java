@@ -1,6 +1,6 @@
 package com.capgemini.cdao.bank;
 
-import com.capgemini.dto.bank.client.Address;
+import com.capgemini.dto.Address;
 import com.capgemini.dto.bank.client.Client;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;

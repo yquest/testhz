@@ -1,0 +1,1 @@
+sh ../exec_cqhsh.sh -f ../src/test/resources/bank/drop_schema.cql

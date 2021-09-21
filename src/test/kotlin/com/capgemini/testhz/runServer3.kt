@@ -1,7 +1,5 @@
 package com.capgemini.testhz
 
-import com.capgemini.testhz.bank.BankApplication
-
 fun main(){
-    BankApplication.main(arrayOf(options(8082)))
+    MainApplication.main(arrayOf(options(8082)))
 }

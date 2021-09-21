@@ -16,3 +16,4 @@ out/
 
 /summary/*
 /target/
+/exec_cqhsh.sh

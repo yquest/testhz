@@ -5,12 +5,11 @@ import com.capgemini.mdao.account.AddAmountTask
 import com.capgemini.mdao.account.TransferAmountTask
 import com.capgemini.rest.bank.AddAmountRequest
 import com.capgemini.testhz.TestHZConstants
-import com.capgemini.testhz.cassandraTest
+import com.capgemini.testhz.cassandraTestBank
 import com.capgemini.testhz.defaultServerPort
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.hazelcast.client.HazelcastClient
 import com.hazelcast.client.config.ClientConfig
-import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
 import io.restassured.RestAssured
 import io.restassured.config.ObjectMapperConfig
@@ -54,17 +53,17 @@ class BankApplicationTests {
 
             val nCombinations = nAccounts * clientsPerAccount
             accountMap = (0 until nCombinations).groupBy { it % (nCombinations / clientsPerAccount) }
-            cassandraTest.session.execute("truncate table client;")
-            cassandraTest.session.execute("truncate table account;")
-            cassandraTest.session.execute("truncate table request;")
-            cassandraTest.session.execute("truncate table idx_client_account;")
+            cassandraTestBank.session.execute("truncate table client;")
+            cassandraTestBank.session.execute("truncate table account;")
+            cassandraTestBank.session.execute("truncate table request;")
+            cassandraTestBank.session.execute("truncate table idx_client_account;")
 
             accountMap.forEach {
                 for (clientId in it.value) {
-                    cassandraTest.clientDao.addAccountPermission(clientId, it.key)
-                    cassandraTest.clientDao.create(ClientData.rndClient(clientId))
+                    cassandraTestBank.clientDao.addAccountPermission(clientId, it.key)
+                    cassandraTestBank.clientDao.create(ClientData.rndClient(clientId))
                 }
-                cassandraTest.accountDao.create(it.key, it.value.toSet(), 0L)
+                cassandraTestBank.accountDao.create(it.key, it.value.toSet(), 0L)
             }
 
         }
@@ -119,7 +118,7 @@ class BankApplicationTests {
             .with()
             .contentType(ContentType.JSON)
             .body(request)
-            .post("http://localhost:${httpPort}/dummy-post")
+            .post("http://localhost:${httpPort}/bank/dummy-post")
             .andReturn().statusCode()
         Assert.assertEquals(200, statusCode)
 
@@ -157,7 +156,7 @@ class BankApplicationTests {
             .with()
             .param("client", client)
             .param("account", account)
-            .delete("http://localhost:${httpPort}/remove-permission")
+            .delete("http://localhost:${httpPort}/bank/remove-permission")
             .andReturn().statusCode
         Assert.assertEquals(200, statusCode)
     }
@@ -167,7 +166,7 @@ class BankApplicationTests {
             .with()
             .param("client", client)
             .param("account", account)
-            .get("http://localhost:${httpPort}/add-permission")
+            .get("http://localhost:${httpPort}/bank/add-permission")
             .andReturn().statusCode
         Assert.assertEquals(200, statusCode)
     }
@@ -247,7 +246,7 @@ class BankApplicationTests {
 
         callWithMeasures(linesAsync, "summary/add-amount-hz.txt")
 
-        val amountMap = hzclient.getMap<Int, Long>(TestHZConstants.DEFAULT)
+        val amountMap = hzclient.getMap<Int, Long>(BankConstants.ACCOUNT_AMOUNT)
         amountMap[0] = 100
         amountMap[1] = 0
 
@@ -260,7 +259,7 @@ class BankApplicationTests {
         Assert.assertEquals(50L,response.destAmount)
         Assert.assertEquals(50L,response.sourceAmount)
 
-        val responseError = hzclient.getExecutorService(BankConstants.ACCOUNT_AMOUNT)
+        val responseError = hzclient.getExecutorService(TestHZConstants.DEFAULT)
             .submitToKeyOwner(TransferAmountTask(0,1,60),0).get()
 
         Assert.assertEquals(AccountException.Code.NEGATIVE_AMOUNT.name, responseError.error)

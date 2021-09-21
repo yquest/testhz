@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
+@RequestMapping("bank")
 public class BankController {
     @Autowired
     ClientCDAO clientCDAO;

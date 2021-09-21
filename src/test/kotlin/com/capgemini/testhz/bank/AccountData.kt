@@ -23,7 +23,7 @@ class AccountData(val id: Int, val clients: List<Int>) {
                 .with()
                 .contentType(ContentType.JSON)
                 .body(newAccountRequest)
-                .post("http://localhost:808${idx}/add-new-account")
+                .post("http://localhost:808${idx}/bank/add-new-account")
                 .andReturn().`as`(UUID::class.java)
 
             return AccountData(id, clients.toList())
@@ -40,7 +40,7 @@ class AccountData(val id: Int, val clients: List<Int>) {
                 .with()
                 .contentType(ContentType.JSON)
                 .body(request)
-                .post("http://localhost:${httpPort}/add-amount")
+                .post("http://localhost:${httpPort}/bank/add-amount")
                 .andReturn().`as`(AddAmountResponse::class.java)
         }
 
@@ -57,7 +57,7 @@ class AccountData(val id: Int, val clients: List<Int>) {
                 .with()
                 .contentType(ContentType.JSON)
                 .body(request)
-                .post("http://localhost:${httpPort}/transfer-amount")
+                .post("http://localhost:${httpPort}/bank/transfer-amount")
                 .andReturn().`as`(TransferResponse::class.java)
         }
 

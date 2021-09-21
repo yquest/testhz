@@ -1,6 +1,6 @@
 package com.capgemini.testhz.bank
 
-import com.capgemini.dto.bank.client.Address
+import com.capgemini.dto.Address
 import com.capgemini.dto.bank.client.Client
 import com.capgemini.rest.bank.AddAmountResponse
 import com.capgemini.testhz.defaultServerPort
@@ -28,7 +28,7 @@ class ClientData(val clientId: Int, val account: Int) {
                 .with()
                 .contentType(ContentType.JSON)
                 .body(client)
-                .post("http://localhost:${httpPort}/create-client")
+                .post("http://localhost:${httpPort}/bank/create-client")
                 .andReturn().`as`(UUID::class.java)
         }
     }

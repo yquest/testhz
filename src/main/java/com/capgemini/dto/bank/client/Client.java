@@ -1,5 +1,6 @@
 package com.capgemini.dto.bank.client;
 
+import com.capgemini.dto.Address;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 import java.time.LocalDate;

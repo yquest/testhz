@@ -1,4 +1,4 @@
-package com.capgemini.dto.bank.client;
+package com.capgemini.dto;
 
 public class Address {
     private final int postalCode;

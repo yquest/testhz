@@ -1,7 +1,9 @@
 package com.capgemini.testhz
 
 import com.capgemini.mdao.account.AccountMDAO
-import com.capgemini.testhz.bank.CassandraTest
+import com.capgemini.testhz.bank.CassandraLocalConf
+import com.capgemini.testhz.bank.CassandraTestBank
+import com.capgemini.testhz.bank.CassandraTestTrain
 import org.json.JSONObject
 
 const val serversNumber = 3
@@ -15,13 +17,14 @@ fun defaultServerPort(): Int {
     return 8080 + currentServerIdx++
 }
 
-val cassandraTest = CassandraTest()
+private val cassandraLocalConf = CassandraLocalConf()
+val cassandraTestBank = CassandraTestBank(session = cassandraLocalConf.createSession("bank"))
+val cassandraTestTrain = CassandraTestTrain(session = cassandraLocalConf.createSession("train"))
 fun options(httpPort: Int): String = JSONObject().put(
     "cassandra", JSONObject()
-        .put("datacenter", cassandraTest.datacenter)
-        .put("keyspace", cassandraTest.keyspace)
-        .put("host", cassandraTest.host)
-        .put("port", cassandraTest.port)
+        .put("datacenter", cassandraLocalConf.datacenter)
+        .put("host", cassandraLocalConf.host)
+        .put("port", cassandraLocalConf.port)
 ).put("http", JSONObject()
     .put("port", httpPort)
 ).put("accountMDAO", AccountMDAO.Selector.LOCK.name)

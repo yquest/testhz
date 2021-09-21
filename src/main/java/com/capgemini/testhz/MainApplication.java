@@ -1,4 +1,4 @@
-package com.capgemini.testhz.bank;
+package com.capgemini.testhz;
 
 import com.capgemini.cdao.bank.AccountCDAO;
 import com.capgemini.cdao.bank.ClientCDAO;
@@ -6,6 +6,7 @@ import com.capgemini.mdao.account.AccountMDAO;
 import com.capgemini.store.bank.ClientAccount;
 import com.capgemini.store.bank.MapAccountClientsStore;
 import com.capgemini.store.bank.MapAccountStore;
+import com.capgemini.testhz.bank.BankConstants;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,6 +19,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
 import com.hazelcast.map.MapStoreFactory;
 import com.hazelcast.map.listener.EntryExpiredListener;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -29,7 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @SpringBootApplication
-public class BankApplication {
+public class MainApplication {
 
     public static void main(String[] args) throws JsonProcessingException {
 
@@ -37,7 +39,7 @@ public class BankApplication {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode jsonNode = mapper.readTree(options);
 
-        SpringApplication app = new SpringApplication(BankApplication.class);
+        SpringApplication app = new SpringApplication(MainApplication.class);
 
         Map<String, Object> props = new HashMap<>();
         props.put("server.port", jsonNode.get("http").get("port").asInt());
@@ -56,17 +58,17 @@ public class BankApplication {
 
     @Bean
     @Scope("singleton")
-    public ClientCDAO getClientCDAO(CqlSession session) {
+    public ClientCDAO getClientCDAO(@Qualifier("bank-session")CqlSession session) {
         return new ClientCDAO(session);
     }
 
     @Bean
     @Scope("singleton")
-    public AccountCDAO getAccountCDAO(CqlSession session) {
+    public AccountCDAO getAccountCDAO(@Qualifier("bank-session")CqlSession session) {
         return new AccountCDAO(session);
     }
 
-    @Bean
+    @Bean(name = "bank-session")
     @Scope("singleton")
     public CqlSession getCqlSession(@Value("${server.options}") String options) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
@@ -74,7 +76,7 @@ public class BankApplication {
         final JsonNode cassandra = jsonNode.get("cassandra");
         int port = cassandra.get("port").asInt();
         String host = cassandra.get("host").asText();
-        String keyspace = cassandra.get("keyspace").asText();
+        String keyspace = "bank";
         String datacenter = cassandra.get("datacenter").asText();
 
         return CqlSession.builder()
