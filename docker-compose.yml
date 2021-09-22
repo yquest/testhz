@@ -1,0 +1,15 @@
+version: '3'
+services:
+
+  mytester:
+    build:
+      context: .
+    ports:
+      - "8080-8082:8080"
+      - "8000-8002:8000"
+      - "5701-5703:5701"
+
+  cassandra:
+    image: cassandra:3.11.11
+    ports:
+      - "9042:9042"
