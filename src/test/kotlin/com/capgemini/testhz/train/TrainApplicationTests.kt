@@ -13,7 +13,6 @@ import com.capgemini.rest.train.seat.OnConflict
 import com.capgemini.rest.train.ticket.TicketPayedRequest
 import com.capgemini.rest.train.ticket.TicketRequest
 import com.capgemini.testhz.defaultServerPort
-import com.capgemini.testhz.options
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.hazelcast.client.HazelcastClient
 import com.hazelcast.client.config.ClientConfig
@@ -23,6 +22,8 @@ import io.restassured.common.mapper.TypeRef
 import io.restassured.config.ObjectMapperConfig
 import io.restassured.http.ContentType
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.apache.commons.lang3.RandomStringUtils.randomAlphabetic
 import org.apache.commons.lang3.RandomUtils
@@ -60,7 +61,7 @@ class TrainApplicationTests {
             hzclient = HazelcastClient.newHazelcastClient(clientConfig)
         }
     }
-    private val listTimes = mutableListOf<Pair<Long, String>>()
+
     private fun setupRoute(setRouteRequest: SetRouteRequest): GenericResponse<*> {
         val httpPort = defaultServerPort()
 
@@ -85,24 +86,22 @@ class TrainApplicationTests {
 
     private fun addRailroadCarTravel(railroadCar: AddRailroadCarTravelRequest): GenericResponse<*> {
         val httpPort = defaultServerPort()
-        val value = RestAssured
+        return RestAssured
             .with()
             .contentType(ContentType.JSON)
             .body(railroadCar)
             .post("http://localhost:${httpPort}/train/add-railroad-car-travel")
             .andReturn().`as`(GenericResponse::class.java)
-        return value
     }
 
     private fun addStations(stations: Map<String, String>): String {
         val httpPort = defaultServerPort()
-        val value = RestAssured
+        return RestAssured
             .with()
             .contentType(ContentType.JSON)
             .body(stations)
             .post("http://localhost:${httpPort}/train/add-stations")
             .andReturn().asString()
-        return value
     }
 
     private fun addTravel(railroadCar: TravelRequest) {
@@ -234,7 +233,13 @@ class TrainApplicationTests {
             .andReturn().`as`(object : TypeRef<GenericResponse<List<SeatKey>>>() {})
     }
 
-    private fun calls(stationsLabels: List<String>, prices: List<Int>, delays: List<Int>, startTravelTime: Instant) {
+    private suspend fun sequenceCall(
+        stationsLabels: List<String>,
+        prices: List<Int>,
+        delays: List<Int>,
+        startTravelTime: Instant,
+    ): List<Pair<Long, String>> {
+        val listTimes = mutableListOf<Pair<Long, String>>()
         val stations = stationsLabels.map { StringUtils.stripAccents(it.uppercase(Locale.getDefault())) }
         val stationsMap = stationsLabels.indices.associate { stations[it] to stationsLabels[it] }
 
@@ -377,7 +382,7 @@ class TrainApplicationTests {
         val userResponse = createUser(User(
             Address(nextInt(), randomAlphabetic(10), randomAlphabetic(10)),
             null,
-            LocalDate.now().minusYears(10).minusDays(nextInt(0,50).toLong()),
+            LocalDate.now().minusYears(10).minusDays(nextInt(0, 50).toLong()),
             randomAlphabetic(10)
         ))
         endTime = System.currentTimeMillis()
@@ -412,7 +417,6 @@ class TrainApplicationTests {
         )
         endTime = System.currentTimeMillis()
         listTimes += (endTime - startTime) to "ticketRequestNOK"
-
 
         Assert.assertEquals(
             SeatState.RESERVED,
@@ -451,7 +455,7 @@ class TrainApplicationTests {
         listTimes += (endTime - startTime) to "ticketPayed"
 
         Assert.assertEquals("ok", resultPayed)
-        sleep(2000)
+        delay(4000)
         Assert.assertEquals(
             SeatState.OCCUPIED,
             seatStateMap[
@@ -463,16 +467,27 @@ class TrainApplicationTests {
                     )
             ]
         )
-
+        Assert.assertEquals(
+            SeatState.AVAILABLE,
+            seatStateMap[
+                    SeatKey(route,
+                        startTravelTime,
+                        ticketRequest2.railroadCar,
+                        ticketRequest2.seatPlace,
+                        ticketRequest2.startStation
+                    )
+            ]
+        )
+        return listTimes
     }
 
     @Test
     fun testTrainNTimes() {
         testDummyGet()
-        runBlocking {
+        val listTimes = runBlocking {
             val tasks = (0 until 20).map {
                 async {
-                    calls(
+                    sequenceCall(
                         stationsLabels = (0 until 10).map { randomAlphabetic(10) },
                         delays = (0 until 9).map { nextInt(10, 50) },
                         prices = (0 until 9).map { nextInt(10, 50) },
@@ -485,7 +500,7 @@ class TrainApplicationTests {
                     )
                 }
             }
-            tasks.forEach { it.await() }
+            return@runBlocking tasks.awaitAll().flatten()
         }
         listTimes.groupBy { it.second }
             .mapValues { it.value.map { pair -> pair.first }.average() }
@@ -642,17 +657,17 @@ class TrainApplicationTests {
         ))
         Assert.assertEquals("ok", resultPayed)
         sleep(2000)
-            Assert.assertEquals(
-                SeatState.OCCUPIED,
-                seatStateMap[
-                        SeatKey(route,
-                            start,
-                            ticketRequest1.railroadCar,
-                            ticketRequest1.seatPlace,
-                            ticketRequest1.startStation
-                        )
-                ]
-            )
+        Assert.assertEquals(
+            SeatState.OCCUPIED,
+            seatStateMap[
+                    SeatKey(route,
+                        start,
+                        ticketRequest1.railroadCar,
+                        ticketRequest1.seatPlace,
+                        ticketRequest1.startStation
+                    )
+            ]
+        )
     }
 
     private fun testDummyGet() {
@@ -661,10 +676,5 @@ class TrainApplicationTests {
             .get("http://localhost:${httpPort}/train/dummy-get")
             .andReturn().`as`(Map::class.java)
         println(map)
-    }
-
-    @Test
-    fun printJsonEntry(){
-        println(options(8080))
     }
 }
