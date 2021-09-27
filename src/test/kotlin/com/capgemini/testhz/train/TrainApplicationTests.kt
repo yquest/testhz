@@ -402,8 +402,8 @@ class TrainApplicationTests {
             stations[2],
             userResponse.value,
             "LB2")
-        val mapResolver = MapResolver { hzclient }
-        val seatStateMap = mapResolver.seatStateMap
+        val dataResolver = DataResolver { hzclient }
+        val seatStateMap = dataResolver.seatStateMap
 
         startTime = System.currentTimeMillis()
         ticketRequest(ticketRequest1)
@@ -481,11 +481,108 @@ class TrainApplicationTests {
         return listTimes
     }
 
+    private fun reducedSequenceCall(
+        stationsLabels: List<String>,
+        prices: List<Int>,
+        delays: List<Int>,
+        startTravelTime: Instant,
+    ): List<Pair<Long, String>> {
+        val listTimes = mutableListOf<Pair<Long, String>>()
+        val stations = stationsLabels.map { StringUtils.stripAccents(it.uppercase(Locale.getDefault())) }
+        val stationsMap = stationsLabels.indices.associate { stations[it] to stationsLabels[it] }
+
+        var startTime = System.currentTimeMillis()
+        Assert.assertEquals("ok", addStations(stationsMap))
+        var endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "addStations"
+        val routeRequest = SetRouteRequest(delays, prices, stationsMap.keys.toList())
+
+        startTime = System.currentTimeMillis()
+        val routeResponse = setupRoute(routeRequest)
+        endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "setupRoute"
+        Assert.assertEquals(routeResponse.result, "ok")
+
+        val route = routeResponse.value as Long
+        val defaultSeats = setOf("LF1", "RF1", "LB1", "RB1", "LF2", "RF2", "LB2", "RB2")
+
+        startTime = System.currentTimeMillis()
+        val railroadCars = addRailroadCars(listOf(
+            RailroadCar(null, "economic", defaultSeats),
+            RailroadCar(null, "economic", defaultSeats),
+            RailroadCar(null, "executive", defaultSeats),
+            RailroadCar(null, "executive", defaultSeats)
+        )).map { it as Long }
+        endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "addRailroadCars"
+
+        startTime = System.currentTimeMillis()
+        val railroadCarTravelOK = addRailroadCarTravel(AddRailroadCarTravelRequest(
+            startTravelTime,
+            route,
+            railroadCars
+        ))
+        endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "addRailroadCarTravel"
+        Assert.assertEquals("ok", railroadCarTravelOK.result)
+
+        addTravel(TravelRequest(startTravelTime, route, "alpha"))
+
+        val travelKey = TravelKey(route, startTravelTime)
+        startTime = System.currentTimeMillis()
+        setSellingTravelState(travelKey)
+        endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "setSellingTravelState"
+
+        val firstRailroadCar = railroadCars[0]
+        val threeFirstStations = (0 until 3).map { stations[it] }
+
+        val seatKeys = threeFirstStations
+            .map { station -> SeatKey(route, startTravelTime, firstRailroadCar, "RF1", station) }
+
+        startTime = System.currentTimeMillis()
+        val resultReservedOK = setSeatReserved(seatKeys)
+        endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "setSeatReservedOK"
+        Assert.assertEquals("ok", resultReservedOK)
+
+        startTime = System.currentTimeMillis()
+        Assert.assertEquals("ok", setMaintenanceTravelState(travelKey))
+        endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "setMaintenanceTravelState"
+
+        return listTimes
+    }
+
+    @Test
+    fun testTrainReducedNTimes() {
+        testDummyGet()
+        runBlocking {
+            repeat(200) {
+                (0 until 10).map {
+                    async {
+                        reducedSequenceCall(
+                            stationsLabels = (0 until 10).map { randomAlphabetic(10) },
+                            delays = (0 until 9).map { nextInt(10, 50) },
+                            prices = (0 until 9).map { nextInt(10, 50) },
+                            startTravelTime = Instant.now().toEpochMilli().let { now ->
+                                Instant.ofEpochMilli(RandomUtils.nextLong(
+                                    now,
+                                    now + 1000 * 60 * 60 * 24 * 365.toLong()
+                                ))
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     @Test
     fun testTrainNTimes() {
         testDummyGet()
         val listTimes = runBlocking {
-            val tasks = (0 until 20).map {
+            val tasks = (0 until 1000).map {
                 async {
                     sequenceCall(
                         stationsLabels = (0 until 10).map { randomAlphabetic(10) },
@@ -614,7 +711,7 @@ class TrainApplicationTests {
             stationsKeys[2],
             userResponse.value,
             "LB2")
-        val seatStateMap = MapResolver { hzclient }.seatStateMap
+        val seatStateMap = DataResolver { hzclient }.seatStateMap
         val result1 = ticketRequest(ticketRequest1)
         Assert.assertEquals(
             "to update the state to RESERVED the old state must be AVAILABLE",

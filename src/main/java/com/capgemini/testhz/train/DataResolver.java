@@ -4,16 +4,18 @@ import com.capgemini.cdao.train.SeatState;
 import com.capgemini.entity.train.*;
 import com.capgemini.store.train.RailroadCarTravelKey;
 import com.capgemini.store.train.SeatMultiStore;
+import com.hazelcast.collection.IQueue;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.map.IMap;
+import com.hazelcast.topic.ITopic;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public interface MapResolver {
+public interface DataResolver {
 
     HazelcastInstance getHazelcast();
 

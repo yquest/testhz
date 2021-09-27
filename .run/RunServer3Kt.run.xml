@@ -3,6 +3,7 @@
     <option name="MAIN_CLASS_NAME" value="com.capgemini.testhz.RunServer3Kt" />
     <module name="testhz" />
     <shortenClasspath name="NONE" />
+    <option name="VM_PARAMETERS" value="-Xmx500m" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

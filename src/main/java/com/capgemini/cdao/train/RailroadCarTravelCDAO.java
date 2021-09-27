@@ -1,5 +1,6 @@
 package com.capgemini.cdao.train;
 
+import com.capgemini.entity.train.TravelKey;
 import com.capgemini.store.train.RailroadCarTravelKey;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
@@ -14,25 +15,39 @@ import java.util.stream.StreamSupport;
 
 
 public class RailroadCarTravelCDAO {
-    public static final String RAIL_ROAD_CAR = "railroad_car";
+    public static final String RAILROAD_CAR = "railroad_car";
+    private static final String ROUTE = "route";
+    private static final String START = "start";
     private final CqlSession session;
     private final PreparedStatement select;
     private final PreparedStatement insert;
     private final PreparedStatement delete;
+    private final PreparedStatement selectAll;
 
     public RailroadCarTravelCDAO(CqlSession session) {
         this.session = session;
-
         insert = session.prepare("insert into railroad_car_travel (route, start, railroad_car) values (?,?,?)");
-        select = session.prepare("select railroad_car from railroad_car_travel where route = ? and start = ?");
+        select = session.prepare("select route, start, railroad_car from railroad_car_travel where route = ? and start = ?");
+        selectAll = session.prepare("select distinct route, start from railroad_car_travel");
         delete = session.prepare("delete from railroad_car_travel where route = ? and start = ? and railroad_car = ?");
+    }
+
+    public Stream<TravelKey> getTravelKeys() {
+        System.out.printf("execute %s%n", selectAll.getQuery());
+        final ResultSet rs = session.execute(selectAll.bind());
+
+        return StreamSupport.stream(rs.spliterator(), false)
+                .map(row -> new TravelKey(
+                        row.getLong(ROUTE),
+                        row.getInstant(START)
+                ));
     }
 
     public Stream<Long> getRailroadCarIds(long route, Instant start) {
         final ResultSet rs = session.execute(select.bind(route, start));
 
         return StreamSupport.stream(rs.spliterator(), false)
-                .map(row -> row.getLong(RAIL_ROAD_CAR));
+                .map(row -> row.getLong(RAILROAD_CAR));
     }
 
     public void insert(long route, Instant start, List<Long> railroadCars) {
@@ -44,7 +59,6 @@ public class RailroadCarTravelCDAO {
     }
 
     public void delete(RailroadCarTravelKey key) {
-        //delete from railroad_car_travel where route = ? and start = ? and railroad_car = ?
         session.execute(delete.bind(key.getRoute(), key.getStart(), key.getRailroadCar()));
     }
 

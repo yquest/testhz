@@ -58,13 +58,13 @@ public class MainApplication {
 
     @Bean
     @Scope("singleton")
-    public ClientCDAO getClientCDAO(@Qualifier("bank-session")CqlSession session) {
+    public ClientCDAO getClientCDAO(@Qualifier("bank-session") CqlSession session) {
         return new ClientCDAO(session);
     }
 
     @Bean
     @Scope("singleton")
-    public AccountCDAO getAccountCDAO(@Qualifier("bank-session")CqlSession session) {
+    public AccountCDAO getAccountCDAO(@Qualifier("bank-session") CqlSession session) {
         return new AccountCDAO(session);
     }
 
@@ -126,6 +126,9 @@ public class MainApplication {
                 );
         accountClientsConfigMap.setMapStoreConfig(mapAccountClientsStoreConfig);
         accountClientsConfigMap.setBackupCount(2);
+        config.setProperty("hazelcast.backpressure.enabled","true");
+        config.setProperty("hazelcast.backpressure.max.concurrent.invocations.per.partition","50");
+        config.setProperty("hazelcast.operation.backup.timeout.millis","60000");
         hazlecast = Hazelcast.newHazelcastInstance(config);
         final IMap<Integer, Long> map = hazlecast.getMap(BankConstants.ACCOUNT_AMOUNT);
         map.addEntryListener((EntryExpiredListener<Integer, Long>) entryEvent -> System.out.println("expired " + entryEvent), true);

@@ -3,16 +3,14 @@ package com.capgemini.store.train;
 import com.capgemini.cdao.train.SeatState;
 import com.capgemini.entity.train.SeatKey;
 import com.capgemini.entity.train.SeatPlace;
-import com.capgemini.testhz.train.MapResolver;
+import com.capgemini.testhz.train.DataResolver;
 import com.hazelcast.core.HazelcastInstance;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-public class SeatMultiStore implements MapResolver {
+public class SeatMultiStore implements DataResolver {
     private final HazelcastInstance hazelcast;
 
     public SeatMultiStore(HazelcastInstance hazelcast) {

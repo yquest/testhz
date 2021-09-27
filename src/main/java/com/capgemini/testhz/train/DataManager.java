@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 
 @Component
-public class ConfMaps implements MapResolver {
+public class DataManager implements DataResolver {
     private static final int MAX_IDLE = 3;
     private static final int WRITE_DELAY = 3;
     private static final int BACKUP_COUNT = 1;
@@ -209,10 +209,6 @@ public class ConfMaps implements MapResolver {
 
     public FlakeIdGenerator getIdGenRoute() {
         return idGenRoute;
-    }
-
-    public SeatStateCDAO getSeatStateCDAO() {
-        return seatStateCDAO;
     }
 
     public SeatMultiStore getSeatMultiStore() {

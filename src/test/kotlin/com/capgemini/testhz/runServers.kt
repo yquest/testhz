@@ -3,7 +3,6 @@ package com.capgemini.testhz
 import com.capgemini.mdao.account.AccountMDAO
 import com.capgemini.testhz.bank.CassandraLocalConf
 import com.capgemini.testhz.bank.CassandraTestBank
-import com.capgemini.testhz.bank.CassandraTestTrain
 import org.json.JSONObject
 
 const val serversNumber = 3
@@ -19,7 +18,6 @@ fun defaultServerPort(): Int {
 
 private val cassandraLocalConf = CassandraLocalConf()
 val cassandraTestBank = CassandraTestBank(session = cassandraLocalConf.createSession("bank"))
-val cassandraTestTrain = CassandraTestTrain(session = cassandraLocalConf.createSession("train"))
 fun options(httpPort: Int): String = JSONObject().put(
     "cassandra", JSONObject()
         .put("datacenter", cassandraLocalConf.datacenter)

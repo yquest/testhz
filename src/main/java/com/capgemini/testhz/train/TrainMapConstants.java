@@ -9,9 +9,7 @@ public interface TrainMapConstants {
     String RAILROAD_CAR_TRAVEL = "railroad_car_travel";
     String TRAVEL = "travel";
     String STATIONS = "stations";
-    String STATION_ROUTE_STATE = "station_route_delay";
     String SEAT_STATE = "seat_state";
     String TICKET = "ticket";
-    String TICKET_PAY_SCHEDULED = "ticket_pay_scheduled";
     String USER = "user";
 }

@@ -5,7 +5,7 @@ import com.capgemini.entity.train.SeatKey;
 import com.capgemini.entity.train.Ticket;
 import com.capgemini.entity.train.TicketKey;
 import com.capgemini.entity.train.TicketState;
-import com.capgemini.testhz.train.MapResolver;
+import com.capgemini.testhz.train.DataResolver;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.HazelcastInstanceAware;
 import com.hazelcast.map.IMap;
@@ -18,7 +18,7 @@ public class TicketChecker implements Serializable, Callable<Void>, HazelcastIns
     private static final long serialVersionUID = 3617056301722431558L;
     private final TicketKey ticketKey;
     private final List<SeatKey> seatKeys;
-    transient private MapResolver mapResolver;
+    transient private DataResolver dataResolver;
 
     public TicketChecker(TicketKey ticketKey, List<SeatKey> seatKeys) {
         this.ticketKey = ticketKey;
@@ -27,13 +27,13 @@ public class TicketChecker implements Serializable, Callable<Void>, HazelcastIns
 
     @Override
     public void setHazelcastInstance(HazelcastInstance hazelcast) {
-        mapResolver = () -> hazelcast;
+        dataResolver = () -> hazelcast;
     }
 
     @Override
-    public Void call() throws Exception {
+    public Void call() {
         System.out.println("calling the TicketChecker at:" + System.currentTimeMillis());
-        final IMap<TicketKey, Ticket> ticketMap = mapResolver.getTicketMap();
+        final IMap<TicketKey, Ticket> ticketMap = dataResolver.getTicketMap();
         Ticket ticket = ticketMap.get(ticketKey);
 
         try {
@@ -43,7 +43,7 @@ public class TicketChecker implements Serializable, Callable<Void>, HazelcastIns
                 System.out.println("no waiting payment:" + ticket);
                 return null;
             }
-            String result = mapResolver.replaceAllSeatState(seatKeys, SeatState.AVAILABLE);
+            String result = dataResolver.replaceAllSeatState(seatKeys, SeatState.AVAILABLE);
             System.out.println("replace scheduled " + result);
             if (result.equals("ok")) {
                 ticketMap.set(ticketKey, ticket.createClone(TicketState.EXPIRED, 0));

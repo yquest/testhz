@@ -44,32 +44,32 @@ import static com.capgemini.rest.GenericResponse.createOk;
 @RequestMapping(value = "train", produces = MediaType.APPLICATION_JSON_VALUE)
 public class TrainController {
     @Autowired
-    private ConfMaps confMaps;
+    private DataManager dataManager;
 
     @Autowired
     private HazelcastInstance hz;
 
     @PostMapping("add-railroad-car")
     Long addRailroadCar(@RequestBody RailroadCar railroadCar) {
-        long id = confMaps.getIdGenRailroadCar().newId();
-        confMaps.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
-        confMaps.getRailroadCarCDAO().insert(id, railroadCar.getTravelType(), railroadCar.getSeats());
+        long id = dataManager.getIdGenRailroadCar().newId();
+        dataManager.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
+        dataManager.getRailroadCarCDAO().insert(id, railroadCar.getTravelType(), railroadCar.getSeats());
         return id;
     }
 
     @PostMapping("add-railroad-car-travel")
     GenericResponse<Long> addRailroadCarTravel(@RequestBody AddRailroadCarTravelRequest railroadCarTravel) {
         final TravelKey travelKey = new TravelKey(railroadCarTravel.getRoute(), railroadCarTravel.getStart());
-        TravelState travelState = Optional.ofNullable(confMaps.getTravelMap().get(travelKey)).orElse(TravelState.PREPARING);
+        TravelState travelState = Optional.ofNullable(dataManager.getTravelMap().get(travelKey)).orElse(TravelState.PREPARING);
 
         if (travelState != TravelState.PREPARING && travelState != TravelState.MAINTENANCE) {
             return new GenericResponse<>("invalid state " + travelKey + ":" + travelState, null);
         }
-        if (!confMaps.getRouteStationsMap().containsKey(railroadCarTravel.getRoute())) {
+        if (!dataManager.getRouteStationsMap().containsKey(railroadCarTravel.getRoute())) {
             return new GenericResponse<>("there is no route with id:" + railroadCarTravel.getRoute(), null);
         }
 
-        final IMap<Long, RailroadCar> railroadCarMap = confMaps.getRailroadCarMap();
+        final IMap<Long, RailroadCar> railroadCarMap = dataManager.getRailroadCarMap();
         Map<Long, RailroadCar> mapToApplyTravel = new HashMap<>();
         for (Long railroadCarId : railroadCarTravel.getRailroadCars()) {
             railroadCarMap.lock(railroadCarId);
@@ -84,11 +84,11 @@ public class TrainController {
                 final RailroadCar railroadCar = entry.getValue();
                 railroadCarMap.set(entry.getKey(), new RailroadCar(travelKey, railroadCar.getTravelType(), railroadCar.getSeats()));
             }
-            confMaps.getRailroadCarCDAO().updateTravels(mapToApplyTravel.keySet(), travelKey);
-            confMaps.getRailroadCarTravelMap().set(travelKey, railroadCarTravel.getRailroadCars());
-            confMaps.getRailroadCarTravelCDAO().insert(railroadCarTravel.getRoute(), railroadCarTravel.getStart(), railroadCarTravel.getRailroadCars());
+            dataManager.getRailroadCarCDAO().updateTravels(mapToApplyTravel.keySet(), travelKey);
+            dataManager.getRailroadCarTravelMap().set(travelKey, railroadCarTravel.getRailroadCars());
+            dataManager.getRailroadCarTravelCDAO().insert(railroadCarTravel.getRoute(), railroadCarTravel.getStart(), railroadCarTravel.getRailroadCars());
         } finally {
-            mapToApplyTravel.forEach((k, v) -> confMaps.getRailroadCarMap().unlock(k));
+            mapToApplyTravel.forEach((k, v) -> dataManager.getRailroadCarMap().unlock(k));
         }
         return new GenericResponse<>("ok", null);
     }
@@ -97,9 +97,9 @@ public class TrainController {
     List<Long> addRailroadCars(@RequestBody List<RailroadCar> addRailroadCars) {
         List<Long> ids = new ArrayList<>();
         for (RailroadCar railroadCar : addRailroadCars) {
-            long id = confMaps.getIdGenRailroadCar().newId();
-            confMaps.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
-            confMaps.getRailroadCarCDAO().insert(id, railroadCar.getTravelType(), railroadCar.getSeats());
+            long id = dataManager.getIdGenRailroadCar().newId();
+            dataManager.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
+            dataManager.getRailroadCarCDAO().insert(id, railroadCar.getTravelType(), railroadCar.getSeats());
             ids.add(id);
         }
         return ids;
@@ -107,48 +107,48 @@ public class TrainController {
 
     @PostMapping("add-stations")
     String addStations(@RequestBody Map<String, String> stations) {
-        confMaps.getStationsMap().putAll(stations);
+        dataManager.getStationsMap().putAll(stations);
         for (Map.Entry<String, String> entry : stations.entrySet()) {
-            confMaps.getStationsCDAO().insert(entry.getKey(), entry.getValue());
+            dataManager.getStationsCDAO().insert(entry.getKey(), entry.getValue());
         }
         return "ok";
     }
 
     @PostMapping("add-travel")
     GenericResponse<String> addTravel(@RequestBody TravelRequest travelRequest) {
-        IMap<Long, List<String>> routeMap = confMaps.getRouteStationsMap();
+        IMap<Long, List<String>> routeMap = dataManager.getRouteStationsMap();
 
         if (!routeMap.containsKey(travelRequest.getRoute())) {
             return new GenericResponse<>("missing the route in db:" + travelRequest.getRoute(), null);
         }
 
         final TravelKey travelKey = new TravelKey(travelRequest.getRoute(), travelRequest.getStart());
-        List<Long> railroadCars = confMaps.getRailroadCarTravelMap().get(travelKey);
+        List<Long> railroadCars = dataManager.getRailroadCarTravelMap().get(travelKey);
 
         if (!Optional.ofNullable(railroadCars).filter(e -> !e.isEmpty()).isPresent()) {
             return new GenericResponse<>("no railroadCars in travel:" + travelKey, null);
         }
 
-        IMap<TravelKey, TravelState> travelMap = confMaps.getTravelMap();
+        IMap<TravelKey, TravelState> travelMap = dataManager.getTravelMap();
         if (travelMap.containsKey(travelKey)) {
             return new GenericResponse<>("already exists:" + travelKey, null);
         }
-        confMaps.getTravelCDAO().insert(travelRequest.getRoute(), travelRequest.getStart(), travelRequest.getTrainType());
+        dataManager.getTravelCDAO().insert(travelRequest.getRoute(), travelRequest.getStart(), travelRequest.getTrainType());
         travelMap.set(travelKey, TravelState.PREPARING);
         return new GenericResponse<>("ok", travelRequest.getTrainType());
     }
 
     @PostMapping("create-user")
     GenericResponse<Long> createUser(@RequestBody User user) {
-        long id = confMaps.getIdGenUser().newId();
-        confMaps.getUserCDAO().insert(id, user.getName(), user.getBirthDate(), user.getAddress());
+        long id = dataManager.getIdGenUser().newId();
+        dataManager.getUserCDAO().insert(id, user.getName(), user.getBirthDate(), user.getAddress());
         return new GenericResponse<>("ok", id);
     }
 
     @PostMapping("delete-railroad-cars")
     String deleteRailroadCars(@RequestBody RailroadCarsDelete railroadCarsDelete) {
-        final IMap<Long, RailroadCar> railroadCarMap = confMaps.getRailroadCarMap();
-        IMap<RailroadCarTravelKey, Set<SeatPlace>> seatStatesMap = confMaps.getSeatsByRailroadCarMap();
+        final IMap<Long, RailroadCar> railroadCarMap = dataManager.getRailroadCarMap();
+        IMap<RailroadCarTravelKey, Set<SeatPlace>> seatStatesMap = dataManager.getSeatsByRailroadCarMap();
         List<Map.Entry<Long, TravelKey>> carsInTravel = new ArrayList<>();
         List<RailroadCarTravelKey> seatStatePartitionsToDelete = new ArrayList<>();
         for (Long railroadCarId : railroadCarsDelete.getRailroadCarMap().keySet()) {
@@ -159,7 +159,7 @@ public class TrainController {
             }
         }
         try {
-            final IMap<TravelKey, TravelState> travelMap = confMaps.getTravelMap();
+            final IMap<TravelKey, TravelState> travelMap = dataManager.getTravelMap();
             if (!carsInTravel.isEmpty()) {
                 for (Map.Entry<Long, TravelKey> carEntry : carsInTravel) {
 
@@ -199,10 +199,10 @@ public class TrainController {
                     }
                 }
             }
-            RailroadCarTravelCDAO railroadCarTravelCDAO = confMaps.getRailroadCarTravelCDAO();
-            final IMap<TravelKey, List<Long>> railroadCarTravelMap = confMaps.getRailroadCarTravelMap();
+            RailroadCarTravelCDAO railroadCarTravelCDAO = dataManager.getRailroadCarTravelCDAO();
+            final IMap<TravelKey, List<Long>> railroadCarTravelMap = dataManager.getRailroadCarTravelMap();
             for (RailroadCarTravelKey key : seatStatePartitionsToDelete) {
-                confMaps.getSeatMultiStore().deleteCarOnTravel(key);
+                dataManager.getSeatMultiStore().deleteCarOnTravel(key);
                 railroadCarTravelCDAO.delete(key);
                 TravelKey travelKey = new TravelKey(key.getRoute(), key.getStart());
                 railroadCarTravelMap.lock(travelKey);
@@ -220,7 +220,7 @@ public class TrainController {
             }
             for (Long railroadCarId : railroadCarsDelete.getRailroadCarMap().keySet()) {
                 railroadCarMap.remove(railroadCarId);
-                confMaps.getRailroadCarCDAO().delete(railroadCarId);
+                dataManager.getRailroadCarCDAO().delete(railroadCarId);
             }
         } finally {
             for (Long railroadCarId : railroadCarsDelete.getRailroadCarMap().keySet()) {
@@ -243,7 +243,7 @@ public class TrainController {
 
     @PostMapping("find-forward-facing")
     GenericResponse<List<SeatKey>> findFF(@RequestBody FFacingPlaceRequest request) {
-        List<String> stations = confMaps.getRouteStationsMap().get(request.getRoute());
+        List<String> stations = dataManager.getRouteStationsMap().get(request.getRoute());
         int idxStart = stations.indexOf(request.getStartStation());
         if (idxStart == -1) {
             new GenericResponse<>("the start station doesn't in the list", null);
@@ -255,7 +255,7 @@ public class TrainController {
 
         List<Future<List<SeatKey>>> futures = new ArrayList<>();
         final TravelKey travelKey = new TravelKey(request.getRoute(), request.getStart());
-        for (Long car : confMaps.getRailroadCarTravelMap().get(travelKey)) {
+        for (Long car : dataManager.getRailroadCarTravelMap().get(travelKey)) {
             final RailroadCarTravelKey railroadCarTravelKey = travelKey.createRailroadCarTravelKey(car);
             final List<String> subList = stations.subList(idxStart, idxEnd);
             Future<List<SeatKey>> result = hz.getExecutorService(TestHZConstants.DEFAULT)
@@ -279,7 +279,7 @@ public class TrainController {
 
     @PostMapping("get-seat-states")
     List<SeatState> getSeatStates(@RequestBody List<SeatKey> seatKeyList) {
-        final IMap<SeatKey, SeatState> seatStateMap = confMaps.getSeatStateMap();
+        final IMap<SeatKey, SeatState> seatStateMap = dataManager.getSeatStateMap();
         Map<SeatKey, SeatState> map = seatStateMap.getAll(new HashSet<>(seatKeyList));
         List<SeatState> states = new ArrayList<>(seatKeyList.size());
         for (SeatKey seatKey : seatKeyList) {
@@ -290,7 +290,7 @@ public class TrainController {
 
     @PostMapping("reset-selling-travel")
     String resetTravelMaintenance(@RequestBody TravelKey travelKey) {
-        final IMap<TravelKey, TravelState> travelMap = confMaps.getTravelMap();
+        final IMap<TravelKey, TravelState> travelMap = dataManager.getTravelMap();
         if (!travelMap.replace(travelKey, TravelState.MAINTENANCE, TravelState.SELLING)) {
             return String.format("change to %s is invalid for %s", TravelState.SELLING, travelKey);
         }
@@ -305,11 +305,11 @@ public class TrainController {
                 return "only one travel key is allowed";
             }
         }
-        TravelState travelState = confMaps.getTravelMap().get(travelKey);
+        TravelState travelState = dataManager.getTravelMap().get(travelKey);
         if (travelState != TravelState.SELLING) {
             return String.format("invalid state %s for state key %s", travelKey, travelState);
         }
-        return confMaps.getSeatMultiStore().replaceAllSeatState(seats, SeatState.OCCUPIED);
+        return dataManager.getSeatMultiStore().replaceAllSeatState(seats, SeatState.OCCUPIED);
     }
 
     @PostMapping("set-seat-reserved")
@@ -320,25 +320,25 @@ public class TrainController {
                 return "only one travel key is allowed";
             }
         }
-        TravelState travelState = confMaps.getTravelMap().get(travelKey);
+        TravelState travelState = dataManager.getTravelMap().get(travelKey);
         if (travelState != TravelState.SELLING) {
             return String.format("invalid state %s for state key %s", travelKey, travelState);
         }
-        return confMaps.getSeatMultiStore().replaceAllSeatState(seats, SeatState.RESERVED);
+        return dataManager.getSeatMultiStore().replaceAllSeatState(seats, SeatState.RESERVED);
     }
 
     @PostMapping(value = "set-selling-travel")
     String setSellingTravel(@RequestBody TravelKey request) {
         TravelKey travelKey = new TravelKey(request.getRoute(), request.getStart());
-        final IMap<TravelKey, TravelState> travelMap = confMaps.getTravelMap();
+        final IMap<TravelKey, TravelState> travelMap = dataManager.getTravelMap();
         travelMap.lock(travelKey);
-        IMap<TravelKey, List<Long>> railroadCarTravelMap = confMaps.getRailroadCarTravelMap();
+        IMap<TravelKey, List<Long>> railroadCarTravelMap = dataManager.getRailroadCarTravelMap();
         railroadCarTravelMap.lock(travelKey);
-        IMap<Long, RailroadCar> railroadCarMap = confMaps.getRailroadCarMap();
-        final IMap<Long, List<String>> routeStationsMap = confMaps.getRouteStationsMap();
+        IMap<Long, RailroadCar> railroadCarMap = dataManager.getRailroadCarMap();
+        final IMap<Long, List<String>> routeStationsMap = dataManager.getRouteStationsMap();
         routeStationsMap.lock(request.getRoute());
-        final IMap<SeatKey, SeatState> seatStateMap = confMaps.getSeatStateMap();
-        IMap<RailroadCarTravelKey, Set<SeatPlace>> seatsByRailroadCar = confMaps.getSeatsByRailroadCarMap();
+        final IMap<SeatKey, SeatState> seatStateMap = dataManager.getSeatStateMap();
+        IMap<RailroadCarTravelKey, Set<SeatPlace>> seatsByRailroadCar = dataManager.getSeatsByRailroadCarMap();
         try {
             final List<Long> idsCar = Optional.ofNullable(railroadCarTravelMap.get(travelKey)).orElse(Collections.emptyList());
             List<String> list = routeStationsMap.get(travelKey.getRoute());
@@ -362,7 +362,7 @@ public class TrainController {
                 }
             }
 
-            confMaps.getTravelCDAO().updateState(travelKey.getStart(), travelKey.getRoute(), TravelState.SELLING);
+            dataManager.getTravelCDAO().updateState(travelKey.getStart(), travelKey.getRoute(), TravelState.SELLING);
             travelMap.set(travelKey, TravelState.SELLING);
             return "ok";
         } finally {
@@ -374,7 +374,7 @@ public class TrainController {
 
     @PostMapping("set-travel-maintenance")
     String setTravelMaintenance(@RequestBody TravelKey travelKey) {
-        final IMap<TravelKey, TravelState> travelMap = confMaps.getTravelMap();
+        final IMap<TravelKey, TravelState> travelMap = dataManager.getTravelMap();
         if (!travelMap.replace(travelKey, TravelState.SELLING, TravelState.MAINTENANCE)) {
             return String.format("change to %s is invalid for %s", TravelState.MAINTENANCE, travelKey);
         }
@@ -396,22 +396,22 @@ public class TrainController {
                     return new GenericResponse<>("station name doesn't exist:" + station, null);
                 }
             }
-            id = confMaps.getIdGenRoute().newId();
+            id = dataManager.getIdGenRoute().newId();
             routeStationsMap.set(id, request.getStations());
             tx.commitTransaction();
         } catch (Exception ex) {
             tx.rollbackTransaction();
             return GenericResponse.createNok("unexpected error");
         }
-        confMaps.getRouteDelaysMap().set(id, request.getDelays());
-        confMaps.getRoutePricesMap().set(id, request.getPrices());
-        confMaps.getRouteCDAO().insert(id, request.getStations(), request.getDelays(), request.getPrices());
+        dataManager.getRouteDelaysMap().set(id, request.getDelays());
+        dataManager.getRoutePricesMap().set(id, request.getPrices());
+        dataManager.getRouteCDAO().insert(id, request.getStations(), request.getDelays(), request.getPrices());
         return new GenericResponse<>("ok", id);
     }
 
     @PostMapping("ticket-payed")
     String ticketPayed(@RequestBody TicketPayedRequest request) {
-        List<String> stations = confMaps.getRouteStationsMap().get(request.getRoute());
+        List<String> stations = dataManager.getRouteStationsMap().get(request.getRoute());
         int idxStart = stations.indexOf(request.getStartStation());
         if (idxStart == -1) {
             return String.format("start station %s invalid", request.getStartStation());
@@ -424,7 +424,7 @@ public class TrainController {
             return ("invalid stations order");
         }
         TravelKey travelKey = new TravelKey(request.getRoute(), request.getStart());
-        TravelState travelState = confMaps.getTravelMap().get(travelKey);
+        TravelState travelState = dataManager.getTravelMap().get(travelKey);
         if (travelState != TravelState.SELLING) {
             return String.format("invalid state %s for state key %s", travelKey, travelState);
         }
@@ -438,23 +438,23 @@ public class TrainController {
                         station
                 )
         ).collect(Collectors.toList());
-        String result = confMaps.getSeatMultiStore().replaceAllSeatState(seatKeys, SeatState.OCCUPIED);
+        String result = dataManager.getSeatMultiStore().replaceAllSeatState(seatKeys, SeatState.OCCUPIED);
         if (!result.equals("ok")) {
             return result;
         }
-        final IMap<TicketKey, Ticket> ticketMap = confMaps.getTicketMap();
+        final IMap<TicketKey, Ticket> ticketMap = dataManager.getTicketMap();
         Ticket ticket = ticketMap.get(request.clone());
         if (ticket == null) {
             return "unexpected null ticket " + request;
         }
-        int price = confMaps.getRidePrice(request.getRoute(), request.getRailroadCar(), idxStart, idxEndStation);
+        int price = dataManager.getRidePrice(request.getRoute(), request.getRailroadCar(), idxStart, idxEndStation);
         ticketMap.set(request.clone(), ticket.createClone(TicketState.PAYED, price));
         return "ok";
     }
 
     @PostMapping("ticket-request")
     GenericResponse<Integer> ticketRequest(@RequestBody TicketRequest request) {
-        List<String> stations = confMaps.getRouteStationsMap().get(request.getRoute());
+        List<String> stations = dataManager.getRouteStationsMap().get(request.getRoute());
         int idxStart = stations.indexOf(request.getStartStation());
         if (idxStart == -1) {
             return createNok(String.format("start station %s invalid", request.getStartStation()));
@@ -467,7 +467,7 @@ public class TrainController {
             return createNok("invalid stations order");
         }
         TravelKey travelKey = new TravelKey(request.getRoute(), request.getStart());
-        TravelState travelState = confMaps.getTravelMap().get(travelKey);
+        TravelState travelState = dataManager.getTravelMap().get(travelKey);
         if (travelState != TravelState.SELLING) {
             return createNok(String.format("invalid state %s for state key %s", travelKey, travelState));
         }
@@ -483,7 +483,7 @@ public class TrainController {
             );
             seatKeys.add(seatKey);
         }
-        String result = confMaps.getSeatMultiStore().replaceAllSeatState(seatKeys, SeatState.RESERVED);
+        String result = dataManager.getSeatMultiStore().replaceAllSeatState(seatKeys, SeatState.RESERVED);
         if (!result.equals("ok")) {
             return createNok(result);
         }
@@ -495,12 +495,12 @@ public class TrainController {
                 request.getSeatPlace()
         );
         Ticket ticket = new Ticket(request.getUserId(), TicketState.WAITING_PAYMENT, request.getEndStation(), 0);
-        confMaps.getTicketMap().set(ticketKey, ticket);
+        dataManager.getTicketMap().set(ticketKey, ticket);
         System.out.println("schedule the autoDisposable TicketChecker at:" + System.currentTimeMillis());
         Callable<Void> ticketChecker = TaskUtils.autoDisposable(new TicketChecker(ticketKey, seatKeys));
         hz.getScheduledExecutorService(TrainMapConstants.TICKET)
                 .scheduleOnKeyOwner(ticketChecker, ticketKey.getPartitionKey(), 3, TimeUnit.SECONDS);
 
-        return createOk(confMaps.getRidePrice(request.getRoute(), request.getRailroadCar(), idxStart, idxEndStation));
+        return createOk(dataManager.getRidePrice(request.getRoute(), request.getRailroadCar(), idxStart, idxEndStation));
     }
 }

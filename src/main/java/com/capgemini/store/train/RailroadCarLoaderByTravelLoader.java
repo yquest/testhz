@@ -26,13 +26,24 @@ public class RailroadCarLoaderByTravelLoader implements MapLoader<TravelKey, Lis
     @Override
     synchronized public Map<TravelKey, List<Long>> loadAll(Collection<TravelKey> collection) {
         mapLoaderPrinter.loadAll(collection);
-        return Collections.emptyMap();
+        Map<TravelKey,List<Long>> map = new HashMap<>();
+        for(TravelKey travelKey:collection){
+            final List<Long> list = railroadCarTravelCDAO
+                    .getRailroadCarIds(travelKey.getRoute(), travelKey.getStart())
+                    .collect(Collectors.toList());
+            map.put(travelKey, list);
+        }
+        return map;
     }
 
     @Override
     synchronized public Iterable<TravelKey> loadAllKeys() {
         mapLoaderPrinter.loadAllKeys();
-        return Collections.emptyList();
+
+        final List<TravelKey> list = railroadCarTravelCDAO.getTravelKeys().collect(Collectors.toList());
+        System.out.printf("printed list of keys: %s%n", list);
+
+        return list;
     }
 
 }
