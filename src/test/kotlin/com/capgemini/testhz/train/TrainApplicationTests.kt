@@ -193,6 +193,23 @@ class TrainApplicationTests {
             .andReturn().asString()
     }
 
+    private fun getTravelAvailableRailroadCarSeats(
+        travelKey: TravelKey,
+        station: String,
+    ): GenericResponse<Map<Int, List<Long>>> {
+        val httpPort = defaultServerPort()
+        return RestAssured
+            .with()
+            .contentType(ContentType.JSON)
+            .params(mapOf(
+                "start" to travelKey.start.toEpochMilli(),
+                "route" to travelKey.route,
+                "station" to station
+            ))
+            .get("http://localhost:${httpPort}/train/travel-available-railroad-car-seats")
+            .andReturn().`as`(object : TypeRef<GenericResponse<Map<Int, List<Long>>>>() {})
+    }
+
     private fun setSeatOccupied(seatKeys: List<SeatKey>): String {
         val httpPort = defaultServerPort()
         return RestAssured
@@ -478,6 +495,22 @@ class TrainApplicationTests {
                     )
             ]
         )
+
+        startTime = System.currentTimeMillis()
+        val responseSeatsByRailroadCar = getTravelAvailableRailroadCarSeats(travelKey = travelKey, station = stations[1])
+        endTime = System.currentTimeMillis()
+        listTimes += (endTime - startTime) to "getSeatsByRailroadCar"
+
+        Assert.assertEquals("ok", responseSeatsByRailroadCar.result)
+        val defaultSeatsSize = defaultSeats.size
+        Assert.assertEquals(
+            listOf(
+                defaultSeatsSize -1 to listOf(0,1).map { railroadCars[it] },
+                defaultSeatsSize to listOf(railroadCars[3])
+            ).toMap(),
+            responseSeatsByRailroadCar.value
+        )
+
         return listTimes
     }
 
@@ -764,6 +797,17 @@ class TrainApplicationTests {
                         ticketRequest1.startStation
                     )
             ]
+        )
+        val responseSeatsByRailroadCar = getTravelAvailableRailroadCarSeats(travelKey = travelKey, station = stationsKeys[1])
+        Assert.assertEquals("ok", responseSeatsByRailroadCar.result)
+        val defaultSeatsSize = defaultSeats.size
+        Assert.assertEquals(
+            listOf(
+                defaultSeatsSize - 2 to railroadCars[1],
+                defaultSeatsSize - 1 to railroadCars[0],
+                defaultSeatsSize to railroadCars[3]
+            ).associate { it.first to listOf(it.second) },
+            responseSeatsByRailroadCar.value
         )
     }
 

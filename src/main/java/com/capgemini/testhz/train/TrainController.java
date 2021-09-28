@@ -3,6 +3,7 @@ package com.capgemini.testhz.train;
 import com.capgemini.cdao.train.RailroadCarTravelCDAO;
 import com.capgemini.cdao.train.SeatState;
 import com.capgemini.entity.train.*;
+import com.capgemini.mdao.train.CallableCountSeatsAvailable;
 import com.capgemini.mdao.train.CallableFFSeatsAvailable;
 import com.capgemini.mdao.train.TicketChecker;
 import com.capgemini.rest.GenericResponse;
@@ -18,10 +19,10 @@ import com.capgemini.store.train.RailroadCarTravelKey;
 import com.capgemini.testhz.TestHZConstants;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
-import com.hazelcast.org.apache.calcite.util.Pair;
 import com.hazelcast.scheduledexecutor.TaskUtils;
 import com.hazelcast.transaction.TransactionContext;
 import com.hazelcast.transaction.TransactionalMap;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -155,7 +156,7 @@ public class TrainController {
             railroadCarMap.lock(railroadCarId);
             RailroadCar current = railroadCarMap.get(railroadCarId);
             if (current.getTravelKey() != null) {
-                carsInTravel.add(new Pair<>(railroadCarId, current.getTravelKey()));
+                carsInTravel.add(Pair.of(railroadCarId, current.getTravelKey()));
             }
         }
         try {
@@ -502,5 +503,37 @@ public class TrainController {
                 .scheduleOnKeyOwner(ticketChecker, ticketKey.getPartitionKey(), 3, TimeUnit.SECONDS);
 
         return createOk(dataManager.getRidePrice(request.getRoute(), request.getRailroadCar(), idxStart, idxEndStation));
+    }
+
+    @GetMapping("travel-available-railroad-car-seats")
+    GenericResponse<Map<Integer, List<Long>>> getTravelAvailableRailroadCarSeats(
+            @RequestParam(name = "station") String station,
+            @RequestParam(name = "route") Long route,
+            @RequestParam(name = "start") Long start
+    ) throws ExecutionException, InterruptedException {
+        IMap<RailroadCarTravelKey, Set<SeatPlace>> seatsByRailroadCarMap = dataManager.getSeatsByRailroadCarMap();
+        final IMap<TravelKey, List<Long>> railroadCarTravelMap = dataManager.getRailroadCarTravelMap();
+        final TravelKey key = new TravelKey(route, Instant.ofEpochMilli(start));
+        List<Long> railroadCars = railroadCarTravelMap.get(key);
+
+        List<Pair<Long,Future<Integer>>> countSeatsFuture = new ArrayList<>();
+        for (Long railroadCar : railroadCars) {
+            final RailroadCarTravelKey railroadCarTravelKey = key.createRailroadCarTravelKey(railroadCar);
+            Future<Integer> result = hz.getExecutorService("default")
+                    .submitToKeyOwner(
+                            new CallableCountSeatsAvailable(railroadCarTravelKey, station),
+                            railroadCarTravelKey.hashCode()
+                    );
+            countSeatsFuture.add(Pair.of(railroadCar,result));
+        }
+
+        Map<Integer,List<Long>> countSeats = new HashMap<>();
+        for(Pair<Long,Future<Integer>> future: countSeatsFuture){
+            Integer count = future.getValue().get();
+            countSeats.computeIfAbsent(count,k-> new ArrayList<>()).add(future.getKey());
+        }
+
+        System.out.println("count seats:"+countSeats);
+        return createOk(countSeats);
     }
 }
