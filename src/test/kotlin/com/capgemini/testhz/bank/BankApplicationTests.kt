@@ -1,12 +1,14 @@
 package com.capgemini.testhz.bank
 
+import com.capgemini.cdao.bank.AccountCDAO
+import com.capgemini.cdao.bank.ClientCDAO
 import com.capgemini.dto.bank.client.AccountException
 import com.capgemini.mdao.account.AddAmountTask
 import com.capgemini.mdao.account.TransferAmountTask
 import com.capgemini.rest.bank.AddAmountRequest
 import com.capgemini.testhz.TestHZConstants
-import com.capgemini.testhz.cassandraTestBank
 import com.capgemini.testhz.defaultServerPort
+import com.datastax.oss.driver.api.core.CqlSession
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.hazelcast.client.HazelcastClient
 import com.hazelcast.client.config.ClientConfig
@@ -16,7 +18,9 @@ import io.restassured.config.ObjectMapperConfig
 import io.restassured.http.ContentType
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import org.junit.AfterClass
 import org.junit.Assert
+import org.junit.BeforeClass
 import org.junit.Test
 import java.io.File
 import java.text.DateFormat
@@ -32,6 +36,7 @@ class BankApplicationTests {
         private var hzclient: HazelcastInstance
         private const val nAccounts = 10
         private const val clientsPerAccount = 2
+        private lateinit var cassandraTestBank:CqlSession
         val accountMap: Map<Int, List<Int>>
         private val mapper: JsonMapper = JsonMapper.builder().findAndAddModules()
             .defaultDateFormat(DateFormat.getDateInstance())
@@ -53,19 +58,32 @@ class BankApplicationTests {
 
             val nCombinations = nAccounts * clientsPerAccount
             accountMap = (0 until nCombinations).groupBy { it % (nCombinations / clientsPerAccount) }
-            cassandraTestBank.session.execute("truncate table client;")
-            cassandraTestBank.session.execute("truncate table account;")
-            cassandraTestBank.session.execute("truncate table request;")
-            cassandraTestBank.session.execute("truncate table idx_client_account;")
+            cassandraTestBank.execute("truncate table client;")
+            cassandraTestBank.execute("truncate table account;")
+            cassandraTestBank.execute("truncate table request;")
+            cassandraTestBank.execute("truncate table idx_client_account;")
 
+            val clientCDao = ClientCDAO(cassandraTestBank)
+            val accountCdao = AccountCDAO(cassandraTestBank)
             accountMap.forEach {
                 for (clientId in it.value) {
-                    cassandraTestBank.clientDao.addAccountPermission(clientId, it.key)
-                    cassandraTestBank.clientDao.create(ClientData.rndClient(clientId))
+                    clientCDao.addAccountPermission(clientId, it.key)
+                    clientCDao.create(ClientData.rndClient(clientId))
                 }
-                cassandraTestBank.accountDao.create(it.key, it.value.toSet(), 0L)
+                accountCdao.create(it.key, it.value.toSet(), 0L)
             }
 
+        }
+
+        @JvmStatic
+        @BeforeClass
+        fun beforeTests(){
+            cassandraTestBank = CassandraLocalConf().createSession("bank")
+        }
+        @JvmStatic
+        @AfterClass
+        fun afterTests(){
+            cassandraTestBank.close()
         }
     }
 

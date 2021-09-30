@@ -8,6 +8,8 @@ import com.capgemini.store.bank.MapAccountClientsStore;
 import com.capgemini.store.bank.MapAccountStore;
 import com.capgemini.testhz.bank.BankConstants;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,6 +29,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
 
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -79,10 +82,16 @@ public class MainApplication {
         String keyspace = "bank";
         String datacenter = cassandra.get("datacenter").asText();
 
+        DriverConfigLoader loader =
+                DriverConfigLoader.programmaticBuilder()
+                        .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(30))
+                        .build();
+
         return CqlSession.builder()
                 .addContactPoint(new InetSocketAddress(host, port))
                 .withLocalDatacenter(datacenter)
                 .withKeyspace(keyspace)
+                .withConfigLoader(loader)
                 .build();
     }
 

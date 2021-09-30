@@ -4,6 +4,9 @@ services:
   mytester:
     deploy:
       replicas: 3
+      resources:
+        limits:
+          memory: 512m
     build:
       context: .
     ports:
@@ -12,6 +15,6 @@ services:
       - "5701-5703:5701"
 
   cassandra:
-    image: cassandra:3.11.11
+    image: scylladb/scylla
     ports:
       - "9042:9042"

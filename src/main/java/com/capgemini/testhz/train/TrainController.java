@@ -53,8 +53,8 @@ public class TrainController {
     @PostMapping("add-railroad-car")
     Long addRailroadCar(@RequestBody RailroadCar railroadCar) {
         long id = dataManager.getIdGenRailroadCar().newId();
-        dataManager.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
         dataManager.getRailroadCarCDAO().insert(id, railroadCar.getTravelType(), railroadCar.getSeats());
+        dataManager.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
         return id;
     }
 
@@ -86,8 +86,8 @@ public class TrainController {
                 railroadCarMap.set(entry.getKey(), new RailroadCar(travelKey, railroadCar.getTravelType(), railroadCar.getSeats()));
             }
             dataManager.getRailroadCarCDAO().updateTravels(mapToApplyTravel.keySet(), travelKey);
-            dataManager.getRailroadCarTravelMap().set(travelKey, railroadCarTravel.getRailroadCars());
             dataManager.getRailroadCarTravelCDAO().insert(railroadCarTravel.getRoute(), railroadCarTravel.getStart(), railroadCarTravel.getRailroadCars());
+            dataManager.getRailroadCarTravelMap().set(travelKey, railroadCarTravel.getRailroadCars());
         } finally {
             mapToApplyTravel.forEach((k, v) -> dataManager.getRailroadCarMap().unlock(k));
         }
@@ -99,8 +99,8 @@ public class TrainController {
         List<Long> ids = new ArrayList<>();
         for (RailroadCar railroadCar : addRailroadCars) {
             long id = dataManager.getIdGenRailroadCar().newId();
-            dataManager.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
             dataManager.getRailroadCarCDAO().insert(id, railroadCar.getTravelType(), railroadCar.getSeats());
+            dataManager.getRailroadCarMap().set(id, railroadCar, 5, TimeUnit.SECONDS);
             ids.add(id);
         }
         return ids;
@@ -108,10 +108,10 @@ public class TrainController {
 
     @PostMapping("add-stations")
     String addStations(@RequestBody Map<String, String> stations) {
-        dataManager.getStationsMap().putAll(stations);
         for (Map.Entry<String, String> entry : stations.entrySet()) {
             dataManager.getStationsCDAO().insert(entry.getKey(), entry.getValue());
         }
+        dataManager.getStationsMap().putAll(stations);
         return "ok";
     }
 
@@ -203,8 +203,8 @@ public class TrainController {
             RailroadCarTravelCDAO railroadCarTravelCDAO = dataManager.getRailroadCarTravelCDAO();
             final IMap<TravelKey, List<Long>> railroadCarTravelMap = dataManager.getRailroadCarTravelMap();
             for (RailroadCarTravelKey key : seatStatePartitionsToDelete) {
-                dataManager.getSeatMultiStore().deleteCarOnTravel(key);
                 railroadCarTravelCDAO.delete(key);
+                dataManager.getSeatMultiStore().deleteCarOnTravel(key);
                 TravelKey travelKey = new TravelKey(key.getRoute(), key.getStart());
                 railroadCarTravelMap.lock(travelKey);
                 try {
@@ -220,8 +220,8 @@ public class TrainController {
                 }
             }
             for (Long railroadCarId : railroadCarsDelete.getRailroadCarMap().keySet()) {
-                railroadCarMap.remove(railroadCarId);
                 dataManager.getRailroadCarCDAO().delete(railroadCarId);
+                railroadCarMap.remove(railroadCarId);
             }
         } finally {
             for (Long railroadCarId : railroadCarsDelete.getRailroadCarMap().keySet()) {
@@ -404,9 +404,9 @@ public class TrainController {
             tx.rollbackTransaction();
             return GenericResponse.createNok("unexpected error");
         }
+        dataManager.getRouteCDAO().insert(id, request.getStations(), request.getDelays(), request.getPrices());
         dataManager.getRouteDelaysMap().set(id, request.getDelays());
         dataManager.getRoutePricesMap().set(id, request.getPrices());
-        dataManager.getRouteCDAO().insert(id, request.getStations(), request.getDelays(), request.getPrices());
         return new GenericResponse<>("ok", id);
     }
 

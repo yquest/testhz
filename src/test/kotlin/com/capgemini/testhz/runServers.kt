@@ -3,7 +3,10 @@ package com.capgemini.testhz
 import com.capgemini.mdao.account.AccountMDAO
 import com.capgemini.testhz.bank.CassandraLocalConf
 import com.capgemini.testhz.bank.CassandraTestBank
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader
 import org.json.JSONObject
+import java.time.Duration
 
 const val serversNumber = 3
 private var currentServerIdx = 0
@@ -17,7 +20,6 @@ fun defaultServerPort(): Int {
 }
 
 private val cassandraLocalConf = CassandraLocalConf()
-val cassandraTestBank = CassandraTestBank(session = cassandraLocalConf.createSession("bank"))
 fun options(httpPort: Int): String = JSONObject().put(
     "cassandra", JSONObject()
         .put("datacenter", cassandraLocalConf.datacenter)
