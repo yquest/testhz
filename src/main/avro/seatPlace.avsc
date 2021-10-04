@@ -1,0 +1,33 @@
+{
+  "type" : "record",
+  "name" : "SeateStateAvroRecord",
+  "namespace" : "com.capgemini.avro",
+  "fields" : [ {
+    "name" : "route",
+    "type" : "long"
+  }, {
+    "name" : "railroadCar",
+    "type" : "long",
+    "order": "ascending"
+  }, {
+    "name" : "start",
+    "type" : "long",
+    "order": "ascending"
+  }, {
+    "name" : "station",
+    "type" : "string",
+    "order": "ascending"
+  }, {
+    "name" : "place",
+    "type" : "string",
+    "order": "ascending"
+  }, {
+    "name" : "state",
+    "order": "ascending",
+    "type" : {
+      "type" : "enum",
+      "name" : "State",
+      "symbols" : [ "AVAILABLE","OCCUPIED","RESERVED" ]
+    }
+  } ]
+}

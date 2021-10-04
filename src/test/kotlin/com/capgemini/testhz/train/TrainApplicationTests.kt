@@ -497,7 +497,8 @@ class TrainApplicationTests {
         )
 
         startTime = System.currentTimeMillis()
-        val responseSeatsByRailroadCar = getTravelAvailableRailroadCarSeats(travelKey = travelKey, station = stations[1])
+        val responseSeatsByRailroadCar =
+            getTravelAvailableRailroadCarSeats(travelKey = travelKey, station = stations[1])
         endTime = System.currentTimeMillis()
         listTimes += (endTime - startTime) to "getSeatsByRailroadCar"
 
@@ -505,7 +506,7 @@ class TrainApplicationTests {
         val defaultSeatsSize = defaultSeats.size
         Assert.assertEquals(
             listOf(
-                defaultSeatsSize -1 to listOf(0,1).map { railroadCars[it] },
+                defaultSeatsSize - 1 to listOf(0, 1).map { railroadCars[it] },
                 defaultSeatsSize to listOf(railroadCars[3])
             ).toMap(),
             responseSeatsByRailroadCar.value
@@ -798,7 +799,8 @@ class TrainApplicationTests {
                     )
             ]
         )
-        val responseSeatsByRailroadCar = getTravelAvailableRailroadCarSeats(travelKey = travelKey, station = stationsKeys[1])
+        val responseSeatsByRailroadCar =
+            getTravelAvailableRailroadCarSeats(travelKey = travelKey, station = stationsKeys[1])
         Assert.assertEquals("ok", responseSeatsByRailroadCar.result)
         val defaultSeatsSize = defaultSeats.size
         Assert.assertEquals(
@@ -809,6 +811,15 @@ class TrainApplicationTests {
             ).associate { it.first to listOf(it.second) },
             responseSeatsByRailroadCar.value
         )
+    }
+
+    @Test
+    fun testExport() {
+        val httpPort = defaultServerPort()
+        val map = RestAssured
+            .get("http://localhost:${httpPort}/train/export-seats")
+            .andReturn().`as`(Long::class.java)
+        println(map)
     }
 
     private fun testDummyGet() {

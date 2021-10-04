@@ -16,11 +16,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.config.MapStoreConfig;
-import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.map.IMap;
+import com.hazelcast.jet.Jet;
+import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.config.JetConfig;
 import com.hazelcast.map.MapStoreFactory;
-import com.hazelcast.map.listener.EntryExpiredListener;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -95,15 +95,9 @@ public class MainApplication {
                 .build();
     }
 
-    @Bean
-    @Scope("singleton")
-    public HazelcastInstance getHazlecastInstance(
-            AccountCDAO accountCDAO,
-            ClientCDAO clientCDAO
-    ) {
+    public Config getHazelcastConfig(AccountCDAO accountCDAO, ClientCDAO clientCDAO) {
         Config config = new Config();
         config.setClusterName("bank");
-        HazelcastInstance hazlecast;
 
         int saveAfter = 6;//seconds
         int idleMax = 3;//seconds
@@ -135,13 +129,24 @@ public class MainApplication {
                 );
         accountClientsConfigMap.setMapStoreConfig(mapAccountClientsStoreConfig);
         accountClientsConfigMap.setBackupCount(2);
-        config.setProperty("hazelcast.backpressure.enabled","true");
-        config.setProperty("hazelcast.backpressure.max.concurrent.invocations.per.partition","50");
-        config.setProperty("hazelcast.operation.backup.timeout.millis","60000");
-        hazlecast = Hazelcast.newHazelcastInstance(config);
-        final IMap<Integer, Long> map = hazlecast.getMap(BankConstants.ACCOUNT_AMOUNT);
-        map.addEntryListener((EntryExpiredListener<Integer, Long>) entryEvent -> System.out.println("expired " + entryEvent), true);
-        return hazlecast;
+        config.setProperty("hazelcast.backpressure.enabled", "true");
+        config.setProperty("hazelcast.backpressure.max.concurrent.invocations.per.partition", "50");
+        config.setProperty("hazelcast.operation.backup.timeout.millis", "60000");
+        return config;
+    }
+
+    @Bean
+    @Scope("singleton")
+    public JetInstance getJetInstance(AccountCDAO accountCDAO, ClientCDAO clientCDAO) {
+        JetConfig jetConfig = new JetConfig();
+        jetConfig.setHazelcastConfig(getHazelcastConfig(accountCDAO, clientCDAO));
+        return Jet.newJetInstance(jetConfig);
+    }
+
+    @Bean
+    @Scope("singleton")
+    public HazelcastInstance getHazelcastInstance(JetInstance jetInstance) {
+        return jetInstance.getHazelcastInstance();
     }
 
 }
