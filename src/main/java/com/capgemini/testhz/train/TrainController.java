@@ -1,6 +1,6 @@
 package com.capgemini.testhz.train;
 
-import com.capgemini.avro.SeateStateAvroRecord;
+import com.capgemini.avro.SeatsStateAvroRecord;
 import com.capgemini.avro.State;
 import com.capgemini.cdao.train.RailroadCarTravelCDAO;
 import com.capgemini.cdao.train.SeatState;
@@ -23,22 +23,17 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.Traversers;
-import com.hazelcast.jet.avro.AvroSinks;
 import com.hazelcast.jet.pipeline.*;
 import com.hazelcast.map.IMap;
 import com.hazelcast.scheduledexecutor.TaskUtils;
 import com.hazelcast.transaction.TransactionContext;
 import com.hazelcast.transaction.TransactionalMap;
 import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -130,7 +125,7 @@ public class TrainController {
         final Pipeline pipeline = Pipeline.create();
 
         final IMap<RailroadCarTravelKey, Set<SeatPlace>> seatsByRailroadCarMap = dataManager.getSeatsByRailroadCarMap();
-        BatchStage<SeateStateAvroRecord> batchStage = pipeline
+        BatchStage<SeatsStateAvroRecord> batchStage = pipeline
                 .readFrom(travelCarsMapSource)
                 .flatMap(entry ->
                         Traversers.traverseStream(
@@ -140,8 +135,8 @@ public class TrainController {
                         )
                 ).mapUsingIMap(seatsByRailroadCarMap, rctk -> rctk, Pair::of)
                 .flatMap(rctkAndSeatPlace -> {
-                    Stream<SeateStateAvroRecord> stream = rctkAndSeatPlace.getValue().stream().map(e ->
-                            SeateStateAvroRecord.newBuilder()
+                    Stream<SeatsStateAvroRecord> stream = rctkAndSeatPlace.getValue().stream().map(e ->
+                            SeatsStateAvroRecord.newBuilder()
                                     .setRoute(rctkAndSeatPlace.getKey().getRoute())
                                     .setStart(rctkAndSeatPlace.getKey().getStart().toEpochMilli())
                                     .setRailroadCar(rctkAndSeatPlace.getKey().getRailroadCar())
@@ -154,18 +149,16 @@ public class TrainController {
                 });
 
 
-        Sink<SeateStateAvroRecord> sink = SinkBuilder.sinkBuilder(
-                        "avro-export-sink", pctx -> {
-                            DatumWriter<SeateStateAvroRecord> writer = new SpecificDatumWriter<>(SeateStateAvroRecord.class);
-                            DataFileWriter<SeateStateAvroRecord> dataFileWriter = new DataFileWriter<>(writer);
-                            dataFileWriter.create(SeateStateAvroRecord.getClassSchema(), new File("data-export/seats" + pctx.globalProcessorIndex() + "data.avro"));
-                            return dataFileWriter;
-                        })
-                .<SeateStateAvroRecord>receiveFn((writer,item)->{
-                    //noinspection Convert2MethodRef because should be serializable
-                    writer.append(item);
+        Sink<SeatsStateAvroRecord> sink = SinkBuilder.sinkBuilder(
+                        "avro-export-sink", pctx -> new StreamToOpenIO<>(
+                                String.format("seats%s.avro", pctx.globalProcessorIndex()),
+                                SeatsStateAvroRecord.class,
+                                SeatsStateAvroRecord.getClassSchema()
+                        ))
+                .<SeatsStateAvroRecord>receiveFn((stream, item) -> {
+                    stream.getDataFileWriter().append(item);
                 })
-                .destroyFn(DataFileWriter::close)
+                .destroyFn(StreamToOpenIO::close)
                 .build();
         batchStage.writeTo(sink);
 

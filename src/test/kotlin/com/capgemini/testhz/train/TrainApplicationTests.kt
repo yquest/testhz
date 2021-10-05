@@ -12,11 +12,13 @@ import com.capgemini.rest.train.rc.delete.RailroadCarsDelete
 import com.capgemini.rest.train.seat.OnConflict
 import com.capgemini.rest.train.ticket.TicketPayedRequest
 import com.capgemini.rest.train.ticket.TicketRequest
+import com.capgemini.testhz.Shared
 import com.capgemini.testhz.defaultServerPort
-import com.fasterxml.jackson.databind.json.JsonMapper
-import com.hazelcast.client.HazelcastClient
 import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.jet.Jet
+import com.hazelcast.jet.JetInstance
+import com.hazelcast.jet.core.JobStatus
 import io.restassured.RestAssured
 import io.restassured.common.mapper.TypeRef
 import io.restassured.config.ObjectMapperConfig
@@ -32,7 +34,6 @@ import org.apache.commons.lang3.StringUtils
 import org.junit.Assert
 import org.junit.Test
 import java.lang.Thread.sleep
-import java.text.DateFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -42,14 +43,12 @@ import java.util.*
 class TrainApplicationTests {
     companion object {
 
+        private val jetClient: JetInstance
         private val hzclient: HazelcastInstance
-        private val mapper: JsonMapper = JsonMapper.builder().findAndAddModules()
-            .defaultDateFormat(DateFormat.getDateInstance())
-            .build()
 
         init {
             RestAssured.config.objectMapperConfig(ObjectMapperConfig().jackson2ObjectMapperFactory { _, _ ->
-                return@jackson2ObjectMapperFactory mapper
+                return@jackson2ObjectMapperFactory Shared.mapper
             })
 
             val clientConfig = ClientConfig()
@@ -58,7 +57,8 @@ class TrainApplicationTests {
                 .addAddress("127.0.0.1:5701")
                 .addAddress("127.0.0.1:5702")
                 .addAddress("127.0.0.1:5703")
-            hzclient = HazelcastClient.newHazelcastClient(clientConfig)
+            jetClient = Jet.newJetClient(clientConfig)
+            hzclient = jetClient.hazelcastInstance
         }
     }
 
@@ -816,10 +816,20 @@ class TrainApplicationTests {
     @Test
     fun testExport() {
         val httpPort = defaultServerPort()
-        val map = RestAssured
+        val id = RestAssured
             .get("http://localhost:${httpPort}/train/export-seats")
             .andReturn().`as`(Long::class.java)
-        println(map)
+        for (i in 10 downTo 0) {
+            sleep(5000)
+            val job = jetClient.getJob(id)
+            val jobStatus = job?.status
+            if (jobStatus?.isTerminal == true) {
+                assert(jobStatus == JobStatus.COMPLETED)
+                return
+            }
+            println("not completed yet")
+        }
+        assert(false) { "too much time to run the job" }
     }
 
     private fun testDummyGet() {

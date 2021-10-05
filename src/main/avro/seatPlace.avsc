@@ -1,6 +1,6 @@
 {
   "type" : "record",
-  "name" : "SeateStateAvroRecord",
+  "name" : "SeatsStateAvroRecord",
   "namespace" : "com.capgemini.avro",
   "fields" : [ {
     "name" : "route",
